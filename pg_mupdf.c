@@ -31,11 +31,11 @@ void _PG_fini(void); void _PG_fini(void) {
 static void runpage(fz_document *doc, int number, fz_document_writer *out) {
     fz_rect mediabox;
     fz_page *page;
-    fz_device *dev = NULL;
+    fz_device *dev;
     //fz_try(ctx) 
     page = fz_load_page(ctx, doc, number - 1);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_load_page: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
-    (void)fz_var(dev);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_var: %s", fz_caught_message(ctx))));
+//    (void)fz_var(dev);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_var: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
     mediabox = fz_bound_page(ctx, page);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_bound_page: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
