@@ -76,7 +76,7 @@ EXTENSION(pg_mupdf) {
     fz_try(context) input_buffer = fz_new_buffer_from_data(context, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data)); fz_catch(context) ereport(ERROR, (errmsg("fz_new_buffer_from_data: %s", fz_caught_message(context))));
     fz_try(context) input_stream = fz_open_buffer(context, input_buffer); fz_catch(context) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(context))));
     fz_try(context) document = fz_open_document_with_stream(context, input_type, input_stream); fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
-    output_buffer = fz_new_buffer(context, 0);
+    fz_try(context) output_buffer = fz_new_buffer(context, 0); fz_catch(context) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(context))));
     context->user = output_buffer;
     fz_try(context) document_writer = fz_new_document_writer(context, "buf:", output_type, options); fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
     (void)runrange(document, range, document_writer);
