@@ -63,10 +63,11 @@ static void runrange(fz_document *document, const char *range, fz_document_write
 EXTENSION(pg_mupdf) {
     text *input_data;
     char *input_type, *output_type, *options = NULL, *range;
-    fz_buffer *input_buffer, *output_buffer;
+    fz_buffer *input_buffer;
+//    fz_buffer *output_buffer;
     fz_stream *input_stream;
     fz_document *document;
-    fz_output *output;
+//    fz_output *output;
     fz_document_writer *document_writer;
     unsigned char *output_data = NULL;
     size_t output_len;
@@ -91,17 +92,17 @@ EXTENSION(pg_mupdf) {
     input_stream = fz_open_buffer(context, input_buffer);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(context))));
     //fz_try(context) 
     document = fz_open_document_with_stream(context, input_type, input_stream);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
-    output_buffer = fz_new_buffer(context, 0);
-    output = fz_new_output_with_buffer(context, output_buffer);
+//    output_buffer = fz_new_buffer(context, 0);
+//    output = fz_new_output_with_buffer(context, output_buffer);
     //fz_try(context) 
-    document_writer = fz_new_document_writer(context, (const char *)output, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
-//    document_writer = fz_new_document_writer(context, "nul:", output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
+//    document_writer = fz_new_document_writer(context, (const char *)output, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
+    document_writer = fz_new_document_writer(context, "buf:", output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
     (void)runrange(document, range, document_writer);
-    output_len = fz_buffer_extract(context, output_buffer, &output_data);
-//    output_len = fz_buffer_extract(context, input_buffer, &output_data);
-    (void)fz_close_output(context, output);
-    (void)fz_drop_output(context, output);
-    (void)fz_drop_buffer(context, output_buffer);
+//    output_len = fz_buffer_extract(context, output_buffer, &output_data);
+    output_len = fz_buffer_extract(context, input_buffer, &output_data);
+//    (void)fz_close_output(context, output);
+//    (void)fz_drop_output(context, output);
+//    (void)fz_drop_buffer(context, output_buffer);
     (void)fz_drop_buffer(context, input_buffer);
 //    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
