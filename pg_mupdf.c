@@ -3,6 +3,10 @@
 
 #include <utils/builtins.h>
 #include <mupdf/fitz.h>
+//#include <sys/types.h>
+//#include <sys/stat.h>
+//#include <fcntl.h>
+//#include <unistd.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
@@ -73,10 +77,13 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("page is null!")));
     page = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(LOG, "pg_mupdf: data=%s, input=%s, output=%s, options=%s, page=%s", VARDATA_ANY(data), input, output, options, page);
+//    unlink("/tmp/temp.pdf");
+//    if (mkfifo("/tmp/temp.pdf", 0600)) ereport(ERROR, (errmsg("mkfifo")));
     //fz_try(ctx) 
-    buf = fz_new_buffer(ctx, VARSIZE_ANY_EXHDR(data));// fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
+//    buf = fz_new_buffer(ctx, VARSIZE_ANY_EXHDR(data));// fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
-    (void)fz_append_data(ctx, buf, VARDATA_ANY(data), VARSIZE_ANY_EXHDR(data));// fz_catch(ctx) ereport(ERROR, (errmsg("fz_append_data: %s", fz_caught_message(ctx))));
+//    (void)fz_append_data(ctx, buf, VARDATA_ANY(data), VARSIZE_ANY_EXHDR(data));// fz_catch(ctx) ereport(ERROR, (errmsg("fz_append_data: %s", fz_caught_message(ctx))));
+    buf = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(data), VARSIZE_ANY_EXHDR(data));
     //fz_try(ctx) 
     stream = fz_open_buffer(ctx, buf);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
