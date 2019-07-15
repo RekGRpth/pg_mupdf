@@ -94,6 +94,9 @@ EXTENSION(pg_mupdf) {
     //fz_try(context) 
     document_writer = fz_new_document_writer(context, (const char *)output, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
     (void)runrange(document, range, document_writer);
+    (void)fz_close_output(context, output);
+    (void)fz_drop_output(context, output);
+    (void)fz_drop_buffer(context, output_buffer);
     (void)fz_drop_buffer(context, input_buffer);
 //    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
