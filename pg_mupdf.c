@@ -32,6 +32,7 @@ static void runpage(fz_document *doc, int number, fz_document_writer *out) {
     fz_rect mediabox;
     fz_page *page;
     fz_device *dev;
+    elog(LOG, "runpage: number=%i", number);
     //fz_try(ctx) 
     page = fz_load_page(ctx, doc, number - 1);// fz_catch(ctx) ereport(ERROR, (errmsg("fz_load_page: %s", fz_caught_message(ctx))));
     //fz_try(ctx) 
@@ -50,6 +51,7 @@ static void runpage(fz_document *doc, int number, fz_document_writer *out) {
 
 static void runrange(fz_document *doc, const char *range, fz_document_writer *out) {
     int start, end, count;
+    elog(LOG, "runrange: range=%s", range);
     fz_try(ctx) count = fz_count_pages(ctx, doc); fz_catch(ctx) ereport(ERROR, (errmsg("fz_count_pages: %s", fz_caught_message(ctx))));
     while ((range = fz_parse_page_range(ctx, range, &start, &end, count))) if (start < end) for (int i = start; i <= end; i++) runpage(doc, i, out); else for (int i = start; i >= end; i--) runpage(doc, i, out);
 }
