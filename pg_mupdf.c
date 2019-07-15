@@ -22,10 +22,8 @@ void _PG_init(void); void _PG_init(void) {
 //    fz_alloc_context alloc_context = {NULL, mupdf_malloc, mupdf_realloc, mupdf_free};
 //    if (!(context = fz_new_context(&alloc_context, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     if (!(context = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
-    //fz_try(context) 
-    (void)fz_register_document_handlers(context);// fz_catch(context) ereport(ERROR, (errmsg("fz_register_document_handlers: %s", fz_caught_message(context))));
-    //fz_try(context) 
-    (void)fz_set_use_document_css(context, 1);// fz_catch(context) ereport(ERROR, (errmsg("fz_set_use_document_css: %s", fz_caught_message(context))));
+    fz_try(context) (void)fz_register_document_handlers(context); fz_catch(context) ereport(ERROR, (errmsg("fz_register_document_handlers: %s", fz_caught_message(context))));
+    fz_try(context) (void)fz_set_use_document_css(context, 1); fz_catch(context) ereport(ERROR, (errmsg("fz_set_use_document_css: %s", fz_caught_message(context))));
 }
 
 void _PG_fini(void); void _PG_fini(void) {
