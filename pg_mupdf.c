@@ -60,7 +60,6 @@ EXTENSION(pg_mupdf) {
     fz_buffer *output_buffer;
     fz_stream *input_stream;
     fz_document *document;
-//    fz_output *output;
     fz_document_writer *document_writer;
     unsigned char *output_data = NULL;
     size_t output_len = 0;
@@ -74,42 +73,26 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
-//    unlink("/tmp/temp.pdf");
-//    if (mkfifo("/tmp/temp.pdf", 0600)) ereport(ERROR, (errmsg("mkfifo")));
     //fz_try(context) 
 //    input_buffer = fz_new_buffer(context, VARSIZE_ANY_EXHDR(input_data));// fz_catch(context) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(context))));
     //fz_try(context) 
 //    (void)fz_append_data(context, input_buffer, VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));// fz_catch(context) ereport(ERROR, (errmsg("fz_append_data: %s", fz_caught_message(context))));
     input_buffer = fz_new_buffer_from_data(context, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
-    //fz_try(context) 
-    input_stream = fz_open_buffer(context, input_buffer);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(context))));
-    //fz_try(context) 
-    document = fz_open_document_with_stream(context, input_type, input_stream);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
+    fz_try(context) input_stream = fz_open_buffer(context, input_buffer); fz_catch(context) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(context))));
+    fz_try(context) document = fz_open_document_with_stream(context, input_type, input_stream); fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
     output_buffer = fz_new_buffer(context, 0);
     context->user = output_buffer;
-//    output = fz_new_output_with_buffer(context, output_buffer);
-    //fz_try(context) 
-//    document_writer = fz_new_document_writer(context, (const char *)output, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
-    document_writer = fz_new_document_writer(context, "buf:", output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
+    fz_try(context) document_writer = fz_new_document_writer(context, "buf:", output_type, options); fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
     (void)runrange(document, range, document_writer);
-//    output_len = fz_buffer_extract(context, output_buffer, &output_data);
-//    output_len = fz_buffer_storage(context, output_buffer, &output_data);
-//    output_len = fz_buffer_storage(context, input_buffer, &output_data);
-//    (void)fz_close_output(context, output);
-//    (void)fz_drop_output(context, output);
-//    (void)fz_drop_buffer(context, output_buffer);
     (void)fz_drop_buffer(context, input_buffer);
-//    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
     (void)fz_close_document_writer(context, document_writer);
     (void)fz_drop_document_writer(context, document_writer);
     output_len = fz_buffer_storage(context, output_buffer, &output_data);
-//    (void)fz_drop_buffer(context, output_buffer);
     (void)pfree(input_data);
     (void)pfree(input_type);
     (void)pfree(output_type);
     if (options) (void)pfree(options);
     (void)pfree(range);
-//    PG_RETURN_TEXT_P(cstring_to_text_with_len(VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data)));
     PG_RETURN_TEXT_P(cstring_to_text_with_len((const char *)output_data, output_len));
 }
