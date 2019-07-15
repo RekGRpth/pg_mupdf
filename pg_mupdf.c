@@ -104,7 +104,7 @@ EXTENSION(pg_mupdf) {
 //    (void)fz_drop_output(context, output);
 //    (void)fz_drop_buffer(context, output_buffer);
     (void)fz_drop_buffer(context, input_buffer);
-//    (void)fz_drop_stream(context, input_stream);
+    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
     (void)fz_close_document_writer(context, document_writer);
     (void)fz_drop_document_writer(context, document_writer);
