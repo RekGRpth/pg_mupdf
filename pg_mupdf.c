@@ -62,7 +62,7 @@ static void runrange(fz_document *document, const char *range, fz_document_write
 
 EXTENSION(pg_mupdf) {
     text *data;
-    char *input_type, *output_type, *options = NULL, *page;
+    char *input_type, *output_type, *options = NULL, *range;
     fz_buffer *input_buffer;
     fz_stream *input_stream;
     fz_document *document;
@@ -74,9 +74,9 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("output_type is null!")));
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     if (!PG_ARGISNULL(3)) options = TextDatumGetCString(PG_GETARG_DATUM(3));
-    if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("page is null!")));
-    page = TextDatumGetCString(PG_GETARG_DATUM(4));
-    elog(LOG, "pg_mupdf: data=%s, input_type=%s, output_type=%s, options=%s, page=%s", VARDATA_ANY(data), input_type, output_type, options, page);
+    if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
+    range = TextDatumGetCString(PG_GETARG_DATUM(4));
+    elog(LOG, "pg_mupdf: data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(data), input_type, output_type, options, range);
 //    unlink("/tmp/temp.pdf");
 //    if (mkfifo("/tmp/temp.pdf", 0600)) ereport(ERROR, (errmsg("mkfifo")));
     //fz_try(context) 
@@ -90,7 +90,7 @@ EXTENSION(pg_mupdf) {
     document = fz_open_document_with_stream(context, input_type, input_stream);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
     //fz_try(context) 
     document_writer = fz_new_document_writer(context, NULL, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
-    (void)runrange(document, page, document_writer);
+    (void)runrange(document, range, document_writer);
     (void)fz_drop_buffer(context, input_buffer);
 //    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
@@ -100,6 +100,6 @@ EXTENSION(pg_mupdf) {
     (void)pfree(input_type);
     (void)pfree(output_type);
     if (options) (void)pfree(options);
-    (void)pfree(page);
+    (void)pfree(range);
     PG_RETURN_TEXT_P(cstring_to_text_with_len(VARDATA_ANY(data), VARSIZE_ANY_EXHDR(data)));
 }
