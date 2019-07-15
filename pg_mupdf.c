@@ -63,9 +63,10 @@ static void runrange(fz_document *document, const char *range, fz_document_write
 EXTENSION(pg_mupdf) {
     text *data;
     char *input_type, *output_type, *options = NULL, *range;
-    fz_buffer *input_buffer;
+    fz_buffer *input_buffer, *output_buffer;
     fz_stream *input_stream;
     fz_document *document;
+    fz_output *output;
     fz_document_writer *document_writer;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("data is null!")));
     data = DatumGetTextP(PG_GETARG_DATUM(0));
@@ -88,8 +89,10 @@ EXTENSION(pg_mupdf) {
     input_stream = fz_open_buffer(context, input_buffer);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(context))));
     //fz_try(context) 
     document = fz_open_document_with_stream(context, input_type, input_stream);// fz_catch(context) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(context))));
+    output_buffer = fz_new_buffer(context, 0);
+    output = fz_new_output_with_buffer(context, output_buffer);
     //fz_try(context) 
-    document_writer = fz_new_document_writer(context, NULL, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
+    document_writer = fz_new_document_writer(context, (const char *)output, output_type, options);// fz_catch(context) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(context))));
     (void)runrange(document, range, document_writer);
     (void)fz_drop_buffer(context, input_buffer);
 //    (void)fz_drop_stream(context, input_stream);
