@@ -111,6 +111,7 @@ EXTENSION(pg_mupdf) {
     (void)fz_close_document_writer(context, document_writer);
     (void)fz_drop_document_writer(context, document_writer);
     output_len = fz_buffer_storage(context, output_buffer, &output_data);
+//    (void)fz_drop_buffer(context, output_buffer);
     (void)pfree(input_data);
     (void)pfree(input_type);
     (void)pfree(output_type);
