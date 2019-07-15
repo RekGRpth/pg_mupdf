@@ -70,7 +70,7 @@ EXTENSION(pg_mupdf) {
 //    fz_output *output;
     fz_document_writer *document_writer;
     unsigned char *output_data = NULL;
-    size_t output_len;
+    size_t output_len = 0;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("input_data is null!")));
     input_data = DatumGetTextP(PG_GETARG_DATUM(0));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("input_type is null!")));
@@ -104,7 +104,7 @@ EXTENSION(pg_mupdf) {
 //    (void)fz_drop_output(context, output);
 //    (void)fz_drop_buffer(context, output_buffer);
     (void)fz_drop_buffer(context, input_buffer);
-    (void)fz_drop_stream(context, input_stream);
+//    (void)fz_drop_stream(context, input_stream);
     (void)fz_drop_document(context, document);
     (void)fz_close_document_writer(context, document_writer);
     (void)fz_drop_document_writer(context, document_writer);
