@@ -82,7 +82,7 @@ EXTENSION(pg_mupdf) {
     (void)fz_drop_document(context, document);
     (void)fz_close_document_writer(context, document_writer);
     (void)fz_drop_document_writer(context, document_writer);
-    output_len = fz_buffer_storage(context, output_buffer, &output_data);
+    fz_try(context) output_len = fz_buffer_storage(context, output_buffer, &output_data); fz_catch(context) ereport(ERROR, (errmsg("fz_buffer_storage: %s", fz_caught_message(context))));
     (void)pfree(input_data);
     (void)pfree(input_type);
     (void)pfree(output_type);
