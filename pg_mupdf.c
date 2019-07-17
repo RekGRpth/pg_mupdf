@@ -22,8 +22,12 @@ void _PG_init(void); void _PG_init(void) {
 //    fz_alloc_context alloc_context = {NULL, mupdf_malloc, mupdf_realloc, mupdf_free};
 //    if (!(ctx = fz_new_context(&alloc_context, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     if (!(ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
-    fz_try(ctx) (void)fz_register_document_handlers(ctx); fz_catch(ctx) ereport(ERROR, (errmsg("fz_register_document_handlers: %s", fz_caught_message(ctx))));
-    fz_try(ctx) (void)fz_set_use_document_css(ctx, 1); fz_catch(ctx) ereport(ERROR, (errmsg("fz_set_use_document_css: %s", fz_caught_message(ctx))));
+    fz_try(ctx) {
+        fz_register_document_handlers(ctx);
+        fz_set_use_document_css(ctx, 1);
+    } fz_catch(ctx) {
+        ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
+    }
 }
 
 void _PG_fini(void); void _PG_fini(void) {
@@ -36,11 +40,12 @@ static bool runpage(fz_document *document, int number, fz_document_writer *docum
     fz_try(ctx) {
         fz_rect mediabox = fz_bound_page(ctx, page);
         fz_device *dev = fz_begin_page(ctx, document_writer, mediabox);
-        (void)fz_run_page(ctx, page, dev, fz_identity, NULL);
-        (void)fz_end_page(ctx, document_writer);
+        fz_run_page(ctx, page, dev, fz_identity, NULL);
+        fz_end_page(ctx, document_writer);
     } fz_always(ctx) {
-        (void)fz_drop_page(ctx, page);
+        fz_drop_page(ctx, page);
     } fz_catch(ctx) {
+        ereport(WARNING, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
         fz_rethrow(ctx);
     }
     return true;
