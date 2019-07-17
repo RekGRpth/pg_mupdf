@@ -53,7 +53,7 @@ static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
 static void runrange(fz_document *doc, const char *range, fz_document_writer *wri) {
     int start, end, count;
     elog(LOG, "runrange: range=%s", range);
-    fz_try(ctx) count = fz_count_pages(ctx, doc); fz_catch(ctx) ereport(ERROR, (errmsg("fz_count_pages: %s", fz_caught_message(ctx))));
+    count = fz_count_pages(ctx, doc);
     while ((range = fz_parse_page_range(ctx, range, &start, &end, count))) {
         if (start < end) {
             for (int i = start; i <= end; i++) {
@@ -87,11 +87,11 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
+    fz_try(ctx) output_buffer = fz_new_buffer(ctx, 0); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
+    ctx->user = output_buffer;
     fz_try(ctx) input_buffer = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data)); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer_from_data: %s", fz_caught_message(ctx))));
     fz_try(ctx) input_stream = fz_open_buffer(ctx, input_buffer); fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(ctx))));
     fz_try(ctx) doc = fz_open_document_with_stream(ctx, input_type, input_stream); fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(ctx))));
-    fz_try(ctx) output_buffer = fz_new_buffer(ctx, 0); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
-    ctx->user = output_buffer;
     fz_try(ctx) wri = fz_new_document_writer(ctx, "buf:", output_type, options); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(ctx))));
     (void)runrange(doc, range, wri);
     (void)fz_drop_buffer(ctx, input_buffer);
