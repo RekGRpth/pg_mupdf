@@ -28,8 +28,6 @@ static void mupdf_unlock(void *user, int lock) {}
 fz_locks_context mupdf_locks = {NULL, mupdf_lock, mupdf_unlock};
 
 void _PG_init(void); void _PG_init(void) {
-//    fz_alloc_context alloc_context = {NULL, mupdf_malloc, mupdf_realloc, mupdf_free};
-//    if (!(ctx = fz_new_context(&alloc_context, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     if (!(ctx = fz_new_context(&mupdf_alloc, &mupdf_locks, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_try(ctx) {
         fz_register_document_handlers(ctx);
