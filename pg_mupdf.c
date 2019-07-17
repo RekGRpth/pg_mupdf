@@ -16,7 +16,7 @@ fz_context *ctx;
 
 //static void *mupdf_malloc(void *arg, size_t size) { return palloc(size); }
 //static void *mupdf_realloc(void *arg, void *p, size_t size) { return repalloc(p, size); }
-//static void mupdf_free(void *arg, void *p) { if (p) (void)pfree(p); }
+//static void mupdf_free(void *arg, void *p) { if (p) pfree(p); }
 
 void _PG_init(void); void _PG_init(void) {
 //    fz_alloc_context alloc_context = {NULL, mupdf_malloc, mupdf_realloc, mupdf_free};
@@ -31,7 +31,7 @@ void _PG_init(void); void _PG_init(void) {
 }
 
 void _PG_fini(void); void _PG_fini(void) {
-    (void)fz_drop_context(ctx);
+    fz_drop_context(ctx);
 }
 
 static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
@@ -87,22 +87,27 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
-    fz_try(ctx) output_buffer = fz_new_buffer(ctx, 0); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
-    ctx->user = output_buffer;
-    fz_try(ctx) input_buffer = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data)); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer_from_data: %s", fz_caught_message(ctx))));
-    fz_try(ctx) input_stream = fz_open_buffer(ctx, input_buffer); fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_buffer: %s", fz_caught_message(ctx))));
-    fz_try(ctx) doc = fz_open_document_with_stream(ctx, input_type, input_stream); fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(ctx))));
-    fz_try(ctx) wri = fz_new_document_writer(ctx, "buf:", output_type, options); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(ctx))));
-    (void)runrange(doc, range, wri);
-    (void)fz_drop_buffer(ctx, input_buffer);
-    (void)fz_drop_document(ctx, doc);
-    (void)fz_close_document_writer(ctx, wri);
-    (void)fz_drop_document_writer(ctx, wri);
+    fz_try(ctx) {
+        output_buffer = fz_new_buffer(ctx, 0);
+        ctx->user = output_buffer;
+        input_buffer = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
+        input_stream = fz_open_buffer(ctx, input_buffer);
+        doc = fz_open_document_with_stream(ctx, input_type, input_stream);
+        wri = fz_new_document_writer(ctx, "buf:", output_type, options);
+        runrange(doc, range, wri);
+    } fz_always(ctx) {
+        fz_close_document_writer(ctx, wri);
+        fz_drop_document_writer(ctx, wri);
+        fz_drop_document(ctx, doc);
+        fz_drop_buffer(ctx, input_buffer);
+    } fz_catch(ctx) {
+        ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
+    }
     fz_try(ctx) output_len = fz_buffer_storage(ctx, output_buffer, &output_data); fz_catch(ctx) ereport(ERROR, (errmsg("fz_buffer_storage: %s", fz_caught_message(ctx))));
-    (void)pfree(input_data);
-    (void)pfree(input_type);
-    (void)pfree(output_type);
-    if (options) (void)pfree(options);
-    (void)pfree(range);
+    pfree(input_data);
+    pfree(input_type);
+    pfree(output_type);
+    if (options) pfree(options);
+    pfree(range);
     PG_RETURN_TEXT_P(cstring_to_text_with_len((const char *)output_data, output_len));
 }
