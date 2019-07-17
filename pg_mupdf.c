@@ -45,7 +45,6 @@ static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
     } fz_always(ctx) {
         fz_drop_page(ctx, page);
     } fz_catch(ctx) {
-        ereport(WARNING, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
         fz_rethrow(ctx);
     }
 }
@@ -69,7 +68,7 @@ static void runrange(fz_document *doc, const char *range, fz_document_writer *wr
 
 EXTENSION(pg_mupdf) {
     text *input_data;
-    char *input_type, *output_type, *options = NULL, *range;
+    char *input_type, *output_type, *options, *range;
     fz_buffer *input_buffer;
     fz_buffer *output_buffer;
     fz_stream *input_stream;
@@ -83,7 +82,8 @@ EXTENSION(pg_mupdf) {
     input_type = TextDatumGetCString(PG_GETARG_DATUM(1));
     if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("output_type is null!")));
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
-    if (!PG_ARGISNULL(3)) options = TextDatumGetCString(PG_GETARG_DATUM(3));
+    if (PG_ARGISNULL(3)) ereport(ERROR, (errmsg("options is null!")));
+    options = TextDatumGetCString(PG_GETARG_DATUM(3));
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
@@ -103,11 +103,11 @@ EXTENSION(pg_mupdf) {
     } fz_catch(ctx) {
         ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
     }
-    fz_try(ctx) output_len = fz_buffer_storage(ctx, output_buffer, &output_data); fz_catch(ctx) ereport(ERROR, (errmsg("fz_buffer_storage: %s", fz_caught_message(ctx))));
+    output_len = fz_buffer_storage(ctx, output_buffer, &output_data);
     pfree(input_data);
     pfree(input_type);
     pfree(output_type);
-    if (options) pfree(options);
+    pfree(options);
     pfree(range);
     PG_RETURN_TEXT_P(cstring_to_text_with_len((const char *)output_data, output_len));
 }
