@@ -69,8 +69,7 @@ static void runrange(fz_document *doc, const char *range, fz_document_writer *wr
 EXTENSION(pg_mupdf) {
     text *input_data;
     char *input_type, *output_type, *options, *range;
-    fz_buffer *input_buffer;
-    fz_buffer *output_buffer;
+    fz_buffer *input_buffer, *output_buffer;
     fz_stream *input_stream;
     fz_document *doc;
     fz_document_writer *wri;
