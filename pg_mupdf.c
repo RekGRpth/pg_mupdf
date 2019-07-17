@@ -88,7 +88,7 @@ EXTENSION(pg_mupdf) {
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
     fz_try(ctx) {
         output_buffer = fz_new_buffer(ctx, 0);
-        ctx->user = output_buffer;
+        fz_set_user_context(ctx, output_buffer);
         input_buffer = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
         input_stream = fz_open_buffer(ctx, input_buffer);
         doc = fz_open_document_with_stream(ctx, input_type, input_stream);
