@@ -31,14 +31,11 @@ void _PG_fini(void); void _PG_fini(void) {
 }
 
 static bool runpage(fz_document *document, int number, fz_document_writer *document_writer) {
-    fz_rect mediabox;
-    fz_page *page;
-    fz_device *dev;
+    fz_page *page = fz_load_page(ctx, document, number - 1);
     elog(LOG, "runpage: number=%i", number);
-    page = fz_load_page(ctx, document, number - 1);
     fz_try(ctx) {
-        mediabox = fz_bound_page(ctx, page);
-        dev = fz_begin_page(ctx, document_writer, mediabox);
+        fz_rect mediabox = fz_bound_page(ctx, page);
+        fz_device *dev = fz_begin_page(ctx, document_writer, mediabox);
         (void)fz_run_page(ctx, page, dev, fz_identity, NULL);
         (void)fz_end_page(ctx, document_writer);
     } fz_always(ctx) {
