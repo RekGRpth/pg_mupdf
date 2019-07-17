@@ -34,7 +34,7 @@ void _PG_fini(void); void _PG_fini(void) {
     (void)fz_drop_context(ctx);
 }
 
-static bool runpage(fz_document *doc, int number, fz_document_writer *document_writer) {
+static void runpage(fz_document *doc, int number, fz_document_writer *document_writer) {
     fz_page *page = fz_load_page(ctx, doc, number - 1);
     elog(LOG, "runpage: number=%i", number);
     fz_try(ctx) {
@@ -48,10 +48,9 @@ static bool runpage(fz_document *doc, int number, fz_document_writer *document_w
         ereport(WARNING, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
         fz_rethrow(ctx);
     }
-    return true;
 }
 
-static bool runrange(fz_document *doc, const char *range, fz_document_writer *document_writer) {
+static void runrange(fz_document *doc, const char *range, fz_document_writer *document_writer) {
     int start, end, count;
     elog(LOG, "runrange: range=%s", range);
     fz_try(ctx) count = fz_count_pages(ctx, doc); fz_catch(ctx) ereport(ERROR, (errmsg("fz_count_pages: %s", fz_caught_message(ctx))));
@@ -66,7 +65,6 @@ static bool runrange(fz_document *doc, const char *range, fz_document_writer *do
             }
         }
     }
-    return true;
 }
 
 EXTENSION(pg_mupdf) {
