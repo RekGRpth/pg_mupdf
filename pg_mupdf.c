@@ -59,10 +59,10 @@ static void runrange(fz_document *doc, const char *range, fz_document_writer *wr
 EXTENSION(pg_mupdf) {
     text *input_data;
     char *input_type, *output_type, *options, *range;
-    fz_buffer *input_buffer, *output_buffer;
-    fz_stream *input_stream;
-    fz_document *doc;
-    fz_document_writer *wri;
+    fz_buffer *input_buffer = NULL, *output_buffer = NULL;
+    fz_stream *input_stream = NULL;
+    fz_document *doc = NULL;
+    fz_document_writer *wri = NULL;
     unsigned char *output_data = NULL;
     size_t output_len = 0;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("input_data is null!")));
@@ -85,10 +85,10 @@ EXTENSION(pg_mupdf) {
         wri = fz_new_document_writer(ctx, "buf:", output_type, options);
         runrange(doc, range, wri);
     } fz_always(ctx) {
-        fz_close_document_writer(ctx, wri);
-        fz_drop_document_writer(ctx, wri);
-        fz_drop_document(ctx, doc);
-        fz_drop_buffer(ctx, input_buffer);
+        if (wri) fz_close_document_writer(ctx, wri);
+        if (wri) fz_drop_document_writer(ctx, wri);
+        if (doc) fz_drop_document(ctx, doc);
+        if (input_buffer) fz_drop_buffer(ctx, input_buffer);
     } fz_catch(ctx) {
         ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
     }
