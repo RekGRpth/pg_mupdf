@@ -34,14 +34,14 @@ void _PG_fini(void); void _PG_fini(void) {
     (void)fz_drop_context(ctx);
 }
 
-static void runpage(fz_document *doc, int number, fz_document_writer *document_writer) {
+static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
     fz_page *page = fz_load_page(ctx, doc, number - 1);
     elog(LOG, "runpage: number=%i", number);
     fz_try(ctx) {
         fz_rect mediabox = fz_bound_page(ctx, page);
-        fz_device *dev = fz_begin_page(ctx, document_writer, mediabox);
+        fz_device *dev = fz_begin_page(ctx, wri, mediabox);
         fz_run_page(ctx, page, dev, fz_identity, NULL);
-        fz_end_page(ctx, document_writer);
+        fz_end_page(ctx, wri);
     } fz_always(ctx) {
         fz_drop_page(ctx, page);
     } fz_catch(ctx) {
@@ -50,18 +50,18 @@ static void runpage(fz_document *doc, int number, fz_document_writer *document_w
     }
 }
 
-static void runrange(fz_document *doc, const char *range, fz_document_writer *document_writer) {
+static void runrange(fz_document *doc, const char *range, fz_document_writer *wri) {
     int start, end, count;
     elog(LOG, "runrange: range=%s", range);
     fz_try(ctx) count = fz_count_pages(ctx, doc); fz_catch(ctx) ereport(ERROR, (errmsg("fz_count_pages: %s", fz_caught_message(ctx))));
     while ((range = fz_parse_page_range(ctx, range, &start, &end, count))) {
         if (start < end) {
             for (int i = start; i <= end; i++) {
-                runpage(doc, i, document_writer);
+                runpage(doc, i, wri);
             }
         } else {
             for (int i = start; i >= end; i--) {
-                runpage(doc, i, document_writer);
+                runpage(doc, i, wri);
             }
         }
     }
@@ -74,7 +74,7 @@ EXTENSION(pg_mupdf) {
     fz_buffer *output_buffer;
     fz_stream *input_stream;
     fz_document *doc;
-    fz_document_writer *document_writer;
+    fz_document_writer *wri;
     unsigned char *output_data = NULL;
     size_t output_len = 0;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("input_data is null!")));
@@ -92,12 +92,12 @@ EXTENSION(pg_mupdf) {
     fz_try(ctx) doc = fz_open_document_with_stream(ctx, input_type, input_stream); fz_catch(ctx) ereport(ERROR, (errmsg("fz_open_document_with_stream: %s", fz_caught_message(ctx))));
     fz_try(ctx) output_buffer = fz_new_buffer(ctx, 0); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_buffer: %s", fz_caught_message(ctx))));
     ctx->user = output_buffer;
-    fz_try(ctx) document_writer = fz_new_document_writer(ctx, "buf:", output_type, options); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(ctx))));
-    (void)runrange(doc, range, document_writer);
+    fz_try(ctx) wri = fz_new_document_writer(ctx, "buf:", output_type, options); fz_catch(ctx) ereport(ERROR, (errmsg("fz_new_document_writer: %s", fz_caught_message(ctx))));
+    (void)runrange(doc, range, wri);
     (void)fz_drop_buffer(ctx, input_buffer);
     (void)fz_drop_document(ctx, doc);
-    (void)fz_close_document_writer(ctx, document_writer);
-    (void)fz_drop_document_writer(ctx, document_writer);
+    (void)fz_close_document_writer(ctx, wri);
+    (void)fz_drop_document_writer(ctx, wri);
     fz_try(ctx) output_len = fz_buffer_storage(ctx, output_buffer, &output_data); fz_catch(ctx) ereport(ERROR, (errmsg("fz_buffer_storage: %s", fz_caught_message(ctx))));
     (void)pfree(input_data);
     (void)pfree(input_type);
