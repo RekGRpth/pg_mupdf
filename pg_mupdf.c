@@ -10,13 +10,23 @@ PG_MODULE_MAGIC;
 
 fz_context *ctx;
 
+static void pg_mupdf_error_callback(void *user, const char *message) {
+    ereport(WARNING, (errmsg("%s", message)));
+}
+
+static void pg_mupdf_warning_callback(void *user, const char *message) {
+    ereport(WARNING, (errmsg("%s", message)));
+}
+
 void _PG_init(void); void _PG_init(void) {
     if (!(ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
+    fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
+    fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
     fz_try(ctx) {
         fz_register_document_handlers(ctx);
         fz_set_use_document_css(ctx, 1);
     } fz_catch(ctx) {
-        ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
+        ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
 }
 
@@ -90,7 +100,7 @@ EXTENSION(pg_mupdf) {
         if (doc) fz_drop_document(ctx, doc);
         if (input_buffer) fz_drop_buffer(ctx, input_buffer);
     } fz_catch(ctx) {
-        ereport(ERROR, (errmsg("fz_caught_message: %s", fz_caught_message(ctx))));
+        ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
     output_len = fz_buffer_storage(ctx, output_buffer, &output_data);
     pfree(input_data);
