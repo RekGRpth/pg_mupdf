@@ -69,7 +69,7 @@ static void runrange(fz_document *doc, const char *range, fz_document_writer *wr
 EXTENSION(pg_mupdf) {
     text *input_data;
     char *input_type, *output_type, *options, *range;
-    fz_buffer *input_buffer = NULL, *output_buffer = NULL;
+    fz_buffer *output_buffer = NULL;
     fz_stream *input_stream = NULL;
     fz_document *doc = NULL;
     fz_document_writer *wri = NULL;
@@ -89,8 +89,7 @@ EXTENSION(pg_mupdf) {
     fz_try(ctx) {
         output_buffer = fz_new_buffer(ctx, 0);
         fz_set_user_context(ctx, output_buffer);
-        input_buffer = fz_new_buffer_from_data(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
-        input_stream = fz_open_buffer(ctx, input_buffer);
+        input_stream = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
         doc = fz_open_document_with_stream(ctx, input_type, input_stream);
         wri = fz_new_document_writer(ctx, "buf:", output_type, options);
         runrange(doc, range, wri);
@@ -98,7 +97,6 @@ EXTENSION(pg_mupdf) {
         if (wri) fz_close_document_writer(ctx, wri);
         if (wri) fz_drop_document_writer(ctx, wri);
         if (doc) fz_drop_document(ctx, doc);
-        if (input_buffer) fz_drop_buffer(ctx, input_buffer);
     } fz_catch(ctx) {
         ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
