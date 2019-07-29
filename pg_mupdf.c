@@ -102,6 +102,7 @@ EXTENSION(pg_mupdf) {
         ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
     output_len = fz_buffer_storage(ctx, buf, &output_data);
+    if (buf) fz_drop_buffer(ctx, buf);
     pfree(input_data);
     pfree(input_type);
     pfree(output_type);
