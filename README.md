@@ -1,0 +1,1 @@
+mupdf-dev freeglut-dev freetype-dev harfbuzz-dev jbig2dec-dev jpeg-dev openjpeg-dev

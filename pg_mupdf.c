@@ -85,7 +85,7 @@ EXTENSION(pg_mupdf) {
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
-//    elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
+    elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
     fz_try(ctx) {
         buf = fz_new_buffer(ctx, 0);
         fz_set_user_context(ctx, buf);
@@ -102,11 +102,12 @@ EXTENSION(pg_mupdf) {
         ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
     output_len = fz_buffer_storage(ctx, buf, &output_data);
+    elog(LOG, "pg_mupdf: output_data=%s", output_data);
     if (buf) fz_drop_buffer(ctx, buf);
     pfree(input_data);
     pfree(input_type);
     pfree(output_type);
     pfree(options);
     pfree(range);
-    PG_RETURN_TEXT_P(cstring_to_text_with_len((const char *)output_data, output_len));
+    PG_RETURN_BYTEA_P(cstring_to_text_with_len((const char *)output_data, output_len));
 }
