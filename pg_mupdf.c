@@ -63,6 +63,7 @@ EXTENSION(pg_mupdf) {
     fz_stream *stm = NULL;
     fz_document *doc = NULL;
     fz_document_writer *wri = NULL;
+    fz_output *out;
     unsigned char *output_data = NULL;
     size_t output_len = 0;
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("input_data is null!")));
@@ -78,10 +79,10 @@ EXTENSION(pg_mupdf) {
     elog(LOG, "pg_mupdf: input_data=%s, input_type=%s, output_type=%s, options=%s, range=%s", VARDATA_ANY(input_data), input_type, output_type, options, range);
     fz_try(ctx) {
         buf = fz_new_buffer(ctx, 0);
-        fz_set_user_context(ctx, buf);
+        out = fz_new_output_with_buffer(ctx, buf);
         stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
         doc = fz_open_document_with_stream(ctx, input_type, stm);
-        wri = fz_new_document_writer(ctx, "buf:", output_type, options);
+        wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         runrange(doc, range, wri);
     } fz_always(ctx) {
         if (wri) fz_close_document_writer(ctx, wri);
