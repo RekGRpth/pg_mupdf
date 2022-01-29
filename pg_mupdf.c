@@ -36,7 +36,7 @@ void _PG_fini(void); void _PG_fini(void) {
 
 static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
     fz_page *page = fz_load_page(ctx, doc, number - 1);
-//    elog(LOG, "runpage: number=%i", number);
+    elog(LOG, "runpage: number=%i", number);
     fz_try(ctx) {
         fz_rect mediabox = fz_bound_page(ctx, page);
         fz_device *dev = fz_begin_page(ctx, wri, mediabox);
@@ -51,7 +51,7 @@ static void runpage(fz_document *doc, int number, fz_document_writer *wri) {
 
 static void runrange(fz_document *doc, const char *range, fz_document_writer *wri) {
     int start, end, count;
-//    elog(LOG, "runrange: range=%s", range);
+    elog(LOG, "runrange: range=%s", range);
     count = fz_count_pages(ctx, doc);
     while ((range = fz_parse_page_range(ctx, range, &start, &end, count))) {
         if (start < end) {
@@ -102,7 +102,7 @@ EXTENSION(pg_mupdf) {
         ereport(ERROR, (errmsg("%s", fz_caught_message(ctx))));
     }
     output_len = fz_buffer_storage(ctx, buf, &output_data);
-    elog(LOG, "pg_mupdf: output_data=%s", output_data);
+    elog(LOG, "pg_mupdf: output_len = %li, output_data=%s", output_len, output_data);
     if (buf) fz_drop_buffer(ctx, buf);
     pfree(input_data);
     pfree(input_type);
