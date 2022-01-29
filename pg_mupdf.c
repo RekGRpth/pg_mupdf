@@ -11,7 +11,7 @@ PG_MODULE_MAGIC;
 fz_context *ctx;
 
 static void pg_mupdf_error_callback(void *user, const char *message) {
-    ereport(WARNING, (errmsg("%s", message)));
+    ereport(ERROR, (errmsg("%s", message)));
 }
 
 static void pg_mupdf_warning_callback(void *user, const char *message) {
