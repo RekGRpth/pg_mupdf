@@ -11,23 +11,23 @@ PG_MODULE_MAGIC;
 //static fz_context *ctx;
 
 static void *fz_malloc_default_my(void *opaque, size_t size) {
-    return size ? palloc(size) : NULL;
+    return size ? MemoryContextAlloc(opaque, size) : NULL;
 }
 
 static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
-    return (old && size) ? repalloc(old, size) : (size ? palloc(size) : old);
+    return (old && size) ? repalloc(old, size) : (size ? MemoryContextAlloc(opaque, size) : old);
 }
 
 static void fz_free_default_my(void *opaque, void *ptr) {
     if (ptr) pfree(ptr);
 }
 
-static fz_alloc_context fz_alloc_default_my = {
+/*static fz_alloc_context fz_alloc_default_my = {
     NULL,
     fz_malloc_default_my,
     fz_realloc_default_my,
     fz_free_default_my
-};
+};*/
 
 static void pg_mupdf_error_callback(void *user, const char *message) {
     ereport(ERROR, (errmsg("%s", message)));
@@ -88,6 +88,12 @@ EXTENSION(pg_mupdf) {
     size_t output_len;
     text *input_data;
     unsigned char *output_data;
+    fz_alloc_context fz_alloc_default_my = {
+        CurrentMemoryContext,
+        fz_malloc_default_my,
+        fz_realloc_default_my,
+        fz_free_default_my
+    };
     if (PG_ARGISNULL(0)) ereport(ERROR, (errmsg("input_data is null!")));
     if (PG_ARGISNULL(1)) ereport(ERROR, (errmsg("input_type is null!")));
     if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("output_type is null!")));
