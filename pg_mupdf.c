@@ -8,6 +8,27 @@
 
 PG_MODULE_MAGIC;
 
+//static fz_context *ctx;
+
+static void *fz_malloc_default_my(void *opaque, size_t size) {
+    return size ? palloc(size) : NULL;
+}
+
+static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
+    return (old && size) ? repalloc(old, size) : (size ? palloc(size) : old);
+}
+
+static void fz_free_default_my(void *opaque, void *ptr) {
+    if (ptr) pfree(ptr);
+}
+
+static fz_alloc_context fz_alloc_default_my = {
+    NULL,
+    fz_malloc_default_my,
+    fz_realloc_default_my,
+    fz_free_default_my
+};
+
 static void pg_mupdf_error_callback(void *user, const char *message) {
     ereport(ERROR, (errmsg("%s", message)));
 }
@@ -15,6 +36,22 @@ static void pg_mupdf_error_callback(void *user, const char *message) {
 static void pg_mupdf_warning_callback(void *user, const char *message) {
     ereport(WARNING, (errmsg("%s", message)));
 }
+
+/*void _PG_init(void); void _PG_init(void) {
+    if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
+    fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
+    fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
+//    fz_try(ctx) {
+        fz_register_document_handlers(ctx);
+        fz_set_use_document_css(ctx, 1);
+//    } fz_catch(ctx) {
+//        fz_rethrow(ctx);
+//    }
+}
+
+void _PG_fini(void); void _PG_fini(void) {
+    fz_drop_context(ctx);
+}*/
 
 static void runpage(fz_context *ctx, fz_document *doc, fz_document_writer *wri, int number) {
     fz_page *page = fz_load_page(ctx, doc, number - 1);
@@ -62,7 +99,7 @@ EXTENSION(pg_mupdf) {
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     elog(DEBUG1, "input_data=%*.*s, input_type=%s, output_type=%s, options=%s, range=%s", (int)VARSIZE_ANY_EXHDR(input_data), (int)VARSIZE_ANY_EXHDR(input_data), VARDATA_ANY(input_data), input_type, output_type, options, range);
-    if (!(ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
+    if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
 //    fz_try(ctx) {
