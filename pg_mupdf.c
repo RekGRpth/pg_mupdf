@@ -8,8 +8,6 @@
 
 PG_MODULE_MAGIC;
 
-//static fz_context *ctx;
-
 static void *fz_malloc_default_my(void *opaque, size_t size) {
     return size ? MemoryContextAlloc(opaque, size) : NULL;
 }
@@ -22,13 +20,6 @@ static void fz_free_default_my(void *opaque, void *ptr) {
     if (ptr) pfree(ptr);
 }
 
-/*static fz_alloc_context fz_alloc_default_my = {
-    NULL,
-    fz_malloc_default_my,
-    fz_realloc_default_my,
-    fz_free_default_my
-};*/
-
 static void pg_mupdf_error_callback(void *user, const char *message) {
     ereport(ERROR, (errmsg("%s", message)));
 }
@@ -37,28 +28,11 @@ static void pg_mupdf_warning_callback(void *user, const char *message) {
     ereport(WARNING, (errmsg("%s", message)));
 }
 
-/*void _PG_init(void); void _PG_init(void) {
-    if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
-    fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
-    fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
-//    fz_try(ctx) {
-        fz_register_document_handlers(ctx);
-        fz_set_use_document_css(ctx, 1);
-//    } fz_catch(ctx) {
-//        fz_rethrow(ctx);
-//    }
-}
-
-void _PG_fini(void); void _PG_fini(void) {
-    fz_drop_context(ctx);
-}*/
-
 static void runpage(fz_context *ctx, fz_document *doc, fz_document_writer *wri, int number) {
     fz_page *page = fz_load_page(ctx, doc, number - 1);
     fz_try(ctx) {
         fz_rect mediabox = fz_bound_page(ctx, page);
         fz_device *dev = fz_begin_page(ctx, wri, mediabox);
-        elog(DEBUG1, "number = %i", number);
         fz_run_page(ctx, page, dev, fz_identity, NULL);
         fz_end_page(ctx, wri);
     } fz_always(ctx) {
@@ -104,23 +78,17 @@ EXTENSION(pg_mupdf) {
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
-    elog(DEBUG1, "input_data=%*.*s, input_type=%s, output_type=%s, options=%s, range=%s", (int)VARSIZE_ANY_EXHDR(input_data), (int)VARSIZE_ANY_EXHDR(input_data), VARDATA_ANY(input_data), input_type, output_type, options, range);
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
     fz_try(ctx) {
         fz_register_document_handlers(ctx);
         fz_set_use_document_css(ctx, 1);
-    } fz_catch(ctx) {
-        fz_rethrow(ctx);
-    }
-    fz_try(ctx) {
         buf = fz_new_buffer(ctx, 0);
         out = fz_new_output_with_buffer(ctx, buf);
         stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
         doc = fz_open_document_with_stream(ctx, input_type, stm);
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
-        elog(DEBUG1, "stm = %p, doc = %p, buf = %p, out = %p, wri = %p", stm, doc, buf, out, wri);
         runrange(ctx, doc, wri, range);
     } fz_always(ctx) {
         fz_close_document_writer(ctx, wri);
@@ -132,7 +100,6 @@ EXTENSION(pg_mupdf) {
     }
     fz_try(ctx) {
         output_len = fz_buffer_storage(ctx, buf, &output_data);
-        elog(DEBUG1, "output_len = %li, output_data = %*.*s", output_len, (int)output_len, (int)output_len, output_data);
         pdf = cstring_to_text_with_len((const char *)output_data, output_len);
     } fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
