@@ -20,6 +20,7 @@ static void runpage(fz_context *ctx, fz_document *doc, fz_document_writer *wri, 
     fz_page *page = fz_load_page(ctx, doc, number - 1);
     fz_rect mediabox = fz_bound_page(ctx, page);
     fz_device *dev = fz_begin_page(ctx, wri, mediabox);
+    elog(DEBUG1, "number = %i", number);
     fz_run_page(ctx, page, dev, fz_identity, NULL);
     fz_end_page(ctx, wri);
     fz_drop_page(ctx, page);
@@ -55,6 +56,7 @@ EXTENSION(pg_mupdf) {
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
+    elog(DEBUG1, "input_data=%*.*s, input_type=%s, output_type=%s, options=%s, range=%s", (int)VARSIZE_ANY_EXHDR(input_data), (int)VARSIZE_ANY_EXHDR(input_data), VARDATA_ANY(input_data), input_type, output_type, options, range);
     if (!(ctx = fz_new_context(NULL, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
@@ -68,6 +70,7 @@ EXTENSION(pg_mupdf) {
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         runrange(ctx, doc, wri, range);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
+        elog(DEBUG1, "output_len = %li, output_data = %*.*s", output_len, (int)output_len, (int)output_len, output_data);
         pdf = cstring_to_text_with_len((const char *)output_data, output_len);
         fz_drop_buffer(ctx, buf);
     } fz_always(ctx) {
