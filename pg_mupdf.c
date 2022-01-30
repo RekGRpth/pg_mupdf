@@ -77,15 +77,15 @@ static void runrange(fz_context *ctx, fz_document *doc, fz_document_writer *wri,
 }
 
 EXTENSION(pg_mupdf) {
-    bytea *pdf = NULL;
+    bytea *pdf;
     char *input_type, *output_type, *options, *range;
-    fz_buffer *buf = NULL;
-    fz_context *ctx = NULL;
-    fz_document *doc = NULL;
-    fz_document_writer *wri = NULL;
-    fz_output *out = NULL;
-    fz_stream *stm = NULL;
-    size_t output_len = 0;
+    fz_buffer *buf;
+    fz_context *ctx;
+    fz_document *doc;
+    fz_document_writer *wri;
+    fz_output *out;
+    fz_stream *stm;
+    size_t output_len;
     text *input_data;
     unsigned char *output_data;
     fz_alloc_context fz_alloc_default_my = {
@@ -122,14 +122,19 @@ EXTENSION(pg_mupdf) {
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         elog(DEBUG1, "stm = %p, doc = %p, buf = %p, out = %p, wri = %p", stm, doc, buf, out, wri);
         runrange(ctx, doc, wri, range);
-        output_len = fz_buffer_storage(ctx, buf, &output_data);
-        elog(DEBUG1, "output_len = %li, output_data = %*.*s", output_len, (int)output_len, (int)output_len, output_data);
-        pdf = cstring_to_text_with_len((const char *)output_data, output_len);
     } fz_always(ctx) {
         fz_close_document_writer(ctx, wri);
         fz_drop_document_writer(ctx, wri);
         fz_drop_document(ctx, doc);
         fz_drop_stream(ctx, stm);
+    } fz_catch(ctx) {
+        fz_rethrow(ctx);
+    }
+    fz_try(ctx) {
+        output_len = fz_buffer_storage(ctx, buf, &output_data);
+        elog(DEBUG1, "output_len = %li, output_data = %*.*s", output_len, (int)output_len, (int)output_len, output_data);
+        pdf = cstring_to_text_with_len((const char *)output_data, output_len);
+    } fz_always(ctx) {
         fz_drop_buffer(ctx, buf);
     } fz_catch(ctx) {
         fz_rethrow(ctx);
