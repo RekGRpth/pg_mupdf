@@ -21,7 +21,7 @@ static void fz_free_default_my(void *opaque, void *ptr) {
 }
 
 static void pg_mupdf_error_callback(void *user, const char *message) {
-    ereport(ERROR, (errmsg("%s", message)));
+    ereport(WARNING, (errmsg("%s", message)));
 }
 
 static void pg_mupdf_warning_callback(void *user, const char *message) {
