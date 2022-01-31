@@ -91,13 +91,13 @@ EXTENSION(pg_mupdf) {
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         runrange(ctx, doc, wri, range);
         fz_close_document_writer(ctx, wri);
+        fz_close_output(ctx, out);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
         pdf = cstring_to_text_with_len((const char *)output_data, output_len);
     } fz_always(ctx) {
         fz_drop_document_writer(ctx, wri);
         fz_drop_document(ctx, doc);
         fz_drop_stream(ctx, stm);
-//        fz_drop_output(ctx, out);
         fz_drop_buffer(ctx, buf);
     } fz_catch(ctx) {
         fz_rethrow(ctx);
