@@ -73,7 +73,7 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(2)) ereport(ERROR, (errmsg("output_type is null!")));
     if (PG_ARGISNULL(3)) ereport(ERROR, (errmsg("options is null!")));
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
-    input_data = DatumGetTextP(PG_GETARG_DATUM(0));
+    input_data = PG_GETARG_TEXT_PP(0);
     input_type = TextDatumGetCString(PG_GETARG_DATUM(1));
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
@@ -87,6 +87,7 @@ EXTENSION(pg_mupdf) {
         buf = fz_new_buffer(ctx, 0);
         out = fz_new_output_with_buffer(ctx, buf);
         stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
+        PG_FREE_IF_COPY(input_data, 0);
         doc = fz_open_document_with_stream(ctx, input_type, stm);
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         runrange(ctx, doc, wri, range);
