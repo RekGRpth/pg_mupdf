@@ -1,7 +1,11 @@
 #include <postgres.h>
-#include <fmgr.h>
 
+#include <fmgr.h>
 #include <utils/builtins.h>
+#if PG_VERSION_NUM >= 160000
+#include <varatt.h>
+#endif
+
 #include <mupdf/fitz.h>
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
