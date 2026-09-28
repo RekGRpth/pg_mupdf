@@ -1,0 +1,46 @@
+CREATE EXTENSION IF NOT EXISTS pg_mupdf;
+NOTICE:  extension "pg_mupdf" already exists, skipping
+-- every output format (svg used to crash)
+SELECT f, mupdf('<p>hello</p>', 'html', f) IS NOT NULL AS ok
+FROM unnest(ARRAY['cbz', 'csv', 'docx', 'html', 'jpeg', 'odt', 'pam', 'pbm', 'pcl', 'pclm', 'pdf', 'pgm', 'pkm', 'png', 'pnm', 'ppm', 'ps', 'pwg', 'stext', 'stext.json', 'svg', 'text', 'txt', 'xhtml']) f;
+     f      | ok 
+------------+----
+ cbz        | t
+ csv        | t
+ docx       | t
+ html       | t
+ jpeg       | t
+ odt        | t
+ pam        | t
+ pbm        | t
+ pcl        | t
+ pclm       | t
+ pdf        | t
+ pgm        | t
+ pkm        | t
+ png        | t
+ pnm        | t
+ ppm        | t
+ ps         | t
+ pwg        | t
+ stext      | t
+ stext.json | t
+ svg        | t
+ text       | t
+ txt        | t
+ xhtml      | t
+(24 rows)
+
+-- text formats keep the text
+SELECT f, position('hello'::bytea in mupdf('<p>hello</p>', 'html', f)) > 0 AS has_text
+FROM unnest(ARRAY['html', 'stext', 'stext.json', 'text', 'txt', 'xhtml']) f;
+     f      | has_text 
+------------+----------
+ html       | t
+ stext      | t
+ stext.json | t
+ text       | t
+ txt        | t
+ xhtml      | t
+(6 rows)
+

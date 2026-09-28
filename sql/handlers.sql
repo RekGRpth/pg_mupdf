@@ -14,6 +14,9 @@ SHOW pg_mupdf.document_handlers;
 SELECT convert_from(mupdf(pdf, 'pdf', 'txt'), 'utf8') FROM mupdf_doc;
 SELECT convert_from(mupdf(pdf, 'nosuch', 'txt'), 'utf8') FROM mupdf_doc;
 
+-- MuPDF messages come before the error
+SELECT mupdf(convert_to('%PDF-1.7 garbage', 'utf8'), 'pdf');
+
 -- a document without pages
 SELECT length(mupdf(mupdf('<p>x</p>', 'html', 'pdf', '', ''), 'pdf', 'txt'));
 
@@ -23,6 +26,11 @@ SET pg_mupdf.document_handlers = 'html,,pdf';
 SET pg_mupdf.document_handlers = '"HTML"';
 SET pg_mupdf.document_handlers = '';
 SELECT mupdf('<p>x</p>');
+
+-- unquoted names are case-insensitive
+SET pg_mupdf.document_handlers = HTML, PDF;
+SHOW pg_mupdf.document_handlers;
+SELECT convert_from(mupdf(pdf, 'pdf', 'txt'), 'utf8') FROM mupdf_doc;
 RESET pg_mupdf.document_handlers;
 
 -- only superusers can change it

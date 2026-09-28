@@ -1,0 +1,61 @@
+DROP EXTENSION IF EXISTS pg_mupdf;
+CREATE EXTENSION pg_mupdf VERSION '1.0';
+SELECT oid::regprocedure, prosrc FROM pg_proc WHERE proname = 'mupdf' ORDER BY 1::text;
+               oid               |  prosrc  
+---------------------------------+----------
+ mupdf(text,text,text,text,text) | pg_mupdf
+(1 row)
+
+SELECT convert_from(mupdf('<p>1.0</p>', 'html', 'txt'), 'utf8');
+ convert_from 
+--------------
+ 1.0         +
+             +
+ 
+(1 row)
+
+ALTER EXTENSION pg_mupdf UPDATE;
+SELECT extversion FROM pg_extension WHERE extname = 'pg_mupdf';
+ extversion 
+------------
+ 2.0
+(1 row)
+
+SELECT oid::regprocedure, prosrc FROM pg_proc WHERE proname = 'mupdf' ORDER BY 1::text;
+               oid                |     prosrc     
+----------------------------------+----------------
+ mupdf(bytea,text,text,text,text) | pg_mupdf_bytea
+ mupdf(text,text,text,text,text)  | pg_mupdf
+(2 rows)
+
+SELECT convert_from(mupdf('<p>updated text</p>', 'html', 'txt'), 'utf8');
+ convert_from 
+--------------
+ updated text+
+             +
+ 
+(1 row)
+
+SELECT convert_from(mupdf(convert_to('<p>updated bytea</p>', 'utf8'), 'html', 'txt'), 'utf8');
+ convert_from  
+---------------
+ updated bytea+
+              +
+ 
+(1 row)
+
+DROP EXTENSION pg_mupdf;
+CREATE EXTENSION pg_mupdf;
+SELECT extversion FROM pg_extension WHERE extname = 'pg_mupdf';
+ extversion 
+------------
+ 2.0
+(1 row)
+
+SELECT oid::regprocedure, prosrc FROM pg_proc WHERE proname = 'mupdf' ORDER BY 1::text;
+               oid                |     prosrc     
+----------------------------------+----------------
+ mupdf(bytea,text,text,text,text) | pg_mupdf_bytea
+ mupdf(text,text,text,text,text)  | pg_mupdf_text
+(2 rows)
+

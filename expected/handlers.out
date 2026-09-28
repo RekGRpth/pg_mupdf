@@ -46,6 +46,13 @@ SELECT convert_from(mupdf(pdf, 'nosuch', 'txt'), 'utf8') FROM mupdf_doc;
  
 (1 row)
 
+-- MuPDF messages come before the error
+SELECT mupdf(convert_to('%PDF-1.7 garbage', 'utf8'), 'pdf');
+WARNING:  syntax error: expected object number
+WARNING:  format error: cannot find startxref
+WARNING:  trying to repair broken xref
+WARNING:  repairing PDF document
+ERROR:  no objects found
 -- a document without pages
 SELECT length(mupdf(mupdf('<p>x</p>', 'html', 'pdf', '', ''), 'pdf', 'txt'));
 WARNING:  document has no pages
@@ -67,6 +74,22 @@ DETAIL:  Document handler "HTML" is unknown or not available in this MuPDF build
 SET pg_mupdf.document_handlers = '';
 SELECT mupdf('<p>x</p>');
 ERROR:  No document handlers registered
+-- unquoted names are case-insensitive
+SET pg_mupdf.document_handlers = HTML, PDF;
+SHOW pg_mupdf.document_handlers;
+ pg_mupdf.document_handlers 
+----------------------------
+ html, pdf
+(1 row)
+
+SELECT convert_from(mupdf(pdf, 'pdf', 'txt'), 'utf8') FROM mupdf_doc;
+ convert_from 
+--------------
+ inside pdf  +
+             +
+ 
+(1 row)
+
 RESET pg_mupdf.document_handlers;
 -- only superusers can change it
 CREATE ROLE regress_mupdf_user;
