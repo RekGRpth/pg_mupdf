@@ -153,6 +153,10 @@ static void runpage(fz_context *ctx, fz_document *doc, fz_document_writer *wri, 
 
 static void runrange(fz_context *ctx, fz_document *doc, fz_document_writer *wri, const char *range) {
     int count = fz_count_pages(ctx, doc);
+    if (!count) {
+        fz_warn(ctx, "document has no pages");
+        return;
+    }
     for (int start, end; (range = fz_parse_page_range(ctx, range, &start, &end, count));) {
         if (start < end) for (int i = start; i <= end; ++i) runpage(ctx, doc, wri, i);
         else for (int i = start; i >= end; --i) runpage(ctx, doc, wri, i);
