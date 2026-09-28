@@ -13,6 +13,6 @@ select mupdf(convert_from(curl_easy_getinfo_data_in(), 'utf-8'), options:='compr
 
 ### Settings
 
-`pg_mupdf.document_handlers` — comma-separated list of MuPDF document handlers allowed to parse input; only superusers can change it. Default: `html,xhtml`. MuPDF chooses the parser by the content of the input, not by `input_type`, so this list is what decides which parsers are reachable. Available: `cbz`, `epub`, `fb2`, `gz`, `html`, `img`, `mobi`, `office`, `pdf`, `svg`, `txt`, `xhtml`, `xps`.
+`pg_mupdf.document_handlers` — comma-separated list of MuPDF document handlers allowed to parse input; only superusers can change it. Default: `html,xhtml` (those of them available in the MuPDF build). MuPDF chooses the parser by the content of the input, not by `input_type`, so this list is what decides which parsers are reachable. Available: `cbz`, `epub`, `fb2`, `gz`, `html`, `img`, `mobi`, `office`, `pdf`, `svg`, `txt`, `xhtml`, `xps`.
 
 `pg_mupdf.memory_limit` — maximum memory MuPDF may allocate in one call; only superusers can change it. Default: `1GB`, `0` means no limit. A single allocation is also limited to 1 GB. A running call can be canceled (`statement_timeout`, `pg_cancel_backend`).

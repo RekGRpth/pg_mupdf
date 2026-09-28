@@ -85,8 +85,10 @@ static bool check_document_handlers(char **newval, void **extra, GucSource sourc
 
 PGDLLEXPORT void _PG_init(void);
 void _PG_init(void) {
+    /* only handlers this MuPDF build has, so the check hook cannot fail on the default */
+    const char *handlers = pg_mupdf_handler("html") ? (pg_mupdf_handler("xhtml") ? "html,xhtml" : "html") : (pg_mupdf_handler("xhtml") ? "xhtml" : "");
     DefineCustomIntVariable("pg_mupdf.memory_limit", "Maximum memory MuPDF may allocate in one call.", "0 means no limit.", &memory_limit, 1024 * 1024, 0, MAX_KILOBYTES, PGC_SUSET, GUC_UNIT_KB, NULL, NULL, NULL);
-    DefineCustomStringVariable("pg_mupdf.document_handlers", "MuPDF document handlers allowed to parse input.", "Comma-separated list of: cbz, epub, fb2, gz, html, img, mobi, office, pdf, svg, txt, xhtml, xps.", &document_handlers, "html,xhtml", PGC_SUSET, GUC_LIST_INPUT, check_document_handlers, NULL, NULL);
+    DefineCustomStringVariable("pg_mupdf.document_handlers", "MuPDF document handlers allowed to parse input.", "Comma-separated list of: cbz, epub, fb2, gz, html, img, mobi, office, pdf, svg, txt, xhtml, xps.", &document_handlers, handlers, PGC_SUSET, GUC_LIST_INPUT, check_document_handlers, NULL, NULL);
 #if PG_VERSION_NUM >= 150000
     MarkGUCPrefixReserved("pg_mupdf");
 #else
