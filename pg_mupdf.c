@@ -216,7 +216,9 @@ EXTENSION(pg_mupdf) {
         runrange(ctx, doc, wri, range);
         fz_close_document_writer(ctx, wri);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
-        pdf = cstring_to_text_with_len((const char *)output_data, output_len);
+        if (!AllocSizeIsValid(output_len + VARHDRSZ) || !(pdf = MemoryContextAllocExtended(CurrentMemoryContext, output_len + VARHDRSZ, MCXT_ALLOC_NO_OOM))) fz_throw(ctx, FZ_ERROR_LIMIT, "cannot allocate result of %zu bytes", output_len);
+        SET_VARSIZE(pdf, output_len + VARHDRSZ);
+        memcpy(VARDATA(pdf), output_data, output_len);
     } fz_always(ctx) {
         fz_drop_document_writer(ctx, wri);
         fz_drop_document(ctx, doc);
