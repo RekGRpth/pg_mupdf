@@ -16,6 +16,16 @@
 
 #include <mupdf/fitz.h>
 
+/* MuPDF before 1.24 had no fz_convert_error and other error codes */
+#if FZ_VERSION_MAJOR == 1 && FZ_VERSION_MINOR < 24
+#define FZ_ERROR_LIMIT FZ_ERROR_GENERIC
+#define FZ_ERROR_SYSTEM FZ_ERROR_MEMORY
+static const char *fz_convert_error(fz_context *ctx, int *code) {
+    *code = fz_caught(ctx);
+    return fz_caught_message(ctx);
+}
+#endif
+
 #ifndef MAX_KILOBYTES
 #if SIZEOF_SIZE_T > 4 && SIZEOF_LONG > 4
 #define MAX_KILOBYTES INT_MAX
@@ -272,7 +282,8 @@ static Datum pg_mupdf_internal(FunctionCallInfo fcinfo, bool is_text) {
         buf = fz_new_buffer(ctx, 0);
         stm = fz_open_memory(ctx, (unsigned char *)input, input_len);
         doc = fz_open_document_with_stream(ctx, input_type, stm);
-        wri = fz_new_document_writer_with_buffer(ctx, buf, output_type, options);
+        /* the writer takes the output, when failing it drops it or leaves it to MemoryContextDelete; not fz_new_document_writer_with_buffer: in 1.22-1.24 it drops the output the writer still uses, since 1.25 it drops it twice when the pdf writer fails */
+        wri = fz_new_document_writer_with_output(ctx, fz_new_output_with_buffer(ctx, buf), output_type, options);
         runrange(ctx, doc, wri, range);
         fz_close_document_writer(ctx, wri);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
