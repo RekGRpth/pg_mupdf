@@ -96,7 +96,8 @@ void _PG_init(void) {
 
 /* failing the allocation is the only safe way to stop MuPDF: it unwinds to our fz_catch */
 static bool alloc_allowed(MemoryContext mcxt, size_t size) {
-    if (QueryCancelPending || ProcDiePending) return false;
+    memory_limit_exceeded = false; /* only about the last allocation: MuPDF may recover from a refused one */
+    if (!AllocSizeIsValid(size) || QueryCancelPending || ProcDiePending) return false;
     if (memory_limit && MemoryContextMemAllocated(mcxt, false) + size > (Size)memory_limit * 1024) {
         memory_limit_exceeded = true;
         return false;
@@ -105,14 +106,14 @@ static bool alloc_allowed(MemoryContext mcxt, size_t size) {
 }
 
 static void *fz_malloc_default_my(void *opaque, size_t size) {
-    if (!size || !AllocSizeIsValid(size) || !alloc_allowed(opaque, size)) return NULL;
+    if (!size || !alloc_allowed(opaque, size)) return NULL;
     return MemoryContextAllocExtended(opaque, size, MCXT_ALLOC_NO_OOM);
 }
 
 static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
     if (!old) return fz_malloc_default_my(opaque, size);
     if (!size) return old;
-    if (!AllocSizeIsValid(size) || !alloc_allowed(opaque, size)) return NULL;
+    if (!alloc_allowed(opaque, size)) return NULL;
 #if PG_VERSION_NUM >= 160000
     return repalloc_extended(old, size, MCXT_ALLOC_NO_OOM);
 #else
@@ -203,6 +204,7 @@ EXTENSION(pg_mupdf) {
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_DEFAULT))) {
         MemoryContextDelete(mcxt);
         CHECK_FOR_INTERRUPTS();
+        if (memory_limit_exceeded) ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED), errmsg("!fz_new_context"), errdetail("pg_mupdf.memory_limit (%d kB) exceeded.", memory_limit)));
         ereport(ERROR, (errmsg("!fz_new_context")));
     }
     fz_set_error_callback(ctx, pg_mupdf_message_callback, NULL);
@@ -231,12 +233,14 @@ EXTENSION(pg_mupdf) {
         fz_drop_stream(ctx, stm);
         fz_drop_buffer(ctx, buf);
     } fz_catch(ctx) {
-        char *message = pstrdup(fz_convert_error(ctx, NULL));
+        int code;
+        char *message = pstrdup(fz_convert_error(ctx, &code));
+        bool limit = memory_limit_exceeded && code == FZ_ERROR_SYSTEM;
         fz_drop_context(ctx);
         MemoryContextDelete(mcxt);
         pg_mupdf_report_messages();
         CHECK_FOR_INTERRUPTS();
-        if (memory_limit_exceeded) ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED), errmsg("%s", message), errdetail("pg_mupdf.memory_limit (%d kB) exceeded.", memory_limit)));
+        if (limit) ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED), errmsg("%s", message), errdetail("pg_mupdf.memory_limit (%d kB) exceeded.", memory_limit)));
         ereport(ERROR, (errmsg("%s", message)));
     }
     fz_drop_context(ctx);
