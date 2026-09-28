@@ -1,4 +1,14 @@
 CREATE EXTENSION IF NOT EXISTS pg_mupdf;
+-- MuPDF writes svg to memory from 1.25, csv from 1.26, raster images from 1.27: NULL for a format this build cannot write
+CREATE FUNCTION mupdf_opt(data text, output_type text) RETURNS bytea LANGUAGE plpgsql AS $$
+BEGIN
+    RETURN mupdf(data, 'html', output_type);
+EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'unknown output document format: ' || output_type THEN
+        RETURN NULL;
+    END IF;
+    RAISE;
+END $$;
 -- text output
 SELECT convert_from(mupdf('<p>hello <b>world</b></p>', 'html', 'txt'), 'utf8');
  convert_from 
@@ -21,13 +31,13 @@ SELECT substr(mupdf('<p>hello</p>', 'html', 'pdf', 'compress'), 1, 5) = '%PDF-':
  t
 (1 row)
 
-SELECT substr(mupdf('<p>hello</p>', 'html', 'png'), 1, 8) = '\x89504e470d0a1a0a'::bytea AS png;
+SELECT coalesce(substr(mupdf_opt('<p>hello</p>', 'png'), 1, 8) = '\x89504e470d0a1a0a'::bytea, true) AS png;
  png 
 -----
  t
 (1 row)
 
-SELECT position('<svg'::bytea in mupdf('<p>hello</p>', 'html', 'svg')) > 0 AS svg;
+SELECT coalesce(position('<svg'::bytea in mupdf_opt('<p>hello</p>', 'svg')) > 0, true) AS svg;
  svg 
 -----
  t
@@ -93,3 +103,4 @@ SELECT pg_column_size(h) < octet_length(h) AS compressed, mupdf(h, 'html', 'txt'
 (2 rows)
 
 DROP TABLE mupdf_toast;
+DROP FUNCTION mupdf_opt(text, text);

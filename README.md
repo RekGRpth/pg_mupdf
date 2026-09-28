@@ -3,9 +3,10 @@ PostgreSQL implementation of Convert HTML to PDF using MuPDF.
 ### Requirements
 
 - PostgreSQL 9.4 or later with the `pgxs` build infrastructure (`pg_config` on `PATH`).
-- [MuPDF](https://mupdf.com/) installed as a shared library (`libmupdf`), headers included.
+- [MuPDF](https://mupdf.com/) 1.24 or later installed as a shared library (`libmupdf`), headers included. Earlier versions are refused at build time: their HTML parser reads stylesheets from the server's working directory (the data directory) and above it, any input it does not recognize goes to the PDF parser whatever `pg_mupdf.document_handlers` says, and an invalid page range renders the same page until memory runs out.
+- When building MuPDF from source, use the system HarfBuzz (`USE_SYSTEM_HARFBUZZ=yes` or `USE_SYSTEM_LIBS=yes`), as distribution packages do: the bundled copy keeps static data in memory that pg_mupdf frees after each call, and the next call in the session crashes the server process.
 
-Tested with PostgreSQL 9.4 to 19 and MuPDF 1.27.
+Tested with PostgreSQL 9.4 to 19 and MuPDF 1.24, 1.25, 1.27 and 1.28.
 
 ### Installation
 

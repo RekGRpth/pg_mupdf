@@ -8,19 +8,24 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 CREATE TABLE mupdf_inputs AS
 SELECT f, t, mupdf('<p>hello</p>', 'html', f) AS data
-FROM (VALUES ('png', 'png'), ('jpeg', 'jpg'), ('pnm', 'pnm'), ('svg', 'svg'), ('cbz', 'cbz'), ('docx', 'docx')) v(f, t)
+FROM (VALUES ('cbz', 'cbz'), ('docx', 'docx')) v(f, t)
+-- tiny images written by MuPDF 1.27 with resolution=1: older versions cannot write them to memory
+UNION ALL SELECT 'png', 'png', '\x89504e470d0a1a0a0000000d494844520000000600000008080200000055a4196f00000009704859730000002700000027012a09914f0000000f49444154789c63f88f011806831000984e8f7130da52880000000049454e44ae426082'::bytea
+UNION ALL SELECT 'jpeg', 'jpg', '\xffd8ffe000104a46494600010101000100010000ffdb0043000302020302020303030304030304050805050404050a070706080c0a0c0c0b0a0b0b0d0e12100d0e110e0b0b1016101113141515150c0f171816141812141514ffdb00430103040405040509050509140d0b0d1414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414ffc20011080008000603011100021101031101ffc40014000100000000000000000000000000000008ffc40014010100000000000000000000000000000000ffda000c03010002100310000001549fffc40014100100000000000000000000000000000000ffda00080101000105027fffc40014110100000000000000000000000000000000ffda0008010301013f017fffc40014110100000000000000000000000000000000ffda0008010201013f017fffc40014100100000000000000000000000000000000ffda0008010100063f027fffc40014100100000000000000000000000000000000ffda0008010100013f217fffda000c030100020003000000109fffc40014110100000000000000000000000000000000ffda0008010301013f107fffc40014110100000000000000000000000000000000ffda0008010201013f107fffc40014100100000000000000000000000000000000ffda0008010100013f107fffd9'::bytea
+UNION ALL SELECT 'pnm', 'pnm', convert_to(E'P6\n1 1\n255\n', 'utf8') || '\xff0000'::bytea
+UNION ALL SELECT 'svg', 'svg', convert_to('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>', 'utf8')
 UNION ALL SELECT 'txt', 'txt', convert_to('plain text', 'utf8')
 UNION ALL SELECT 'fb2', 'fb2', convert_to('<?xml version="1.0"?><FictionBook xmlns="http://www.gribuv.net/FictionBook2/2.0"><body><section><p>fb2 text</p></section></body></FictionBook>', 'utf8');
 -- none of these parsers is reachable with the default handlers
 SELECT f, mupdf_render(data, t) FROM mupdf_inputs;
   f   |                    mupdf_render                    
 ------+----------------------------------------------------
+ cbz  | cannot find document handler for file type: 'cbz'
+ docx | cannot find document handler for file type: 'docx'
  png  | cannot find document handler for file type: 'png'
  jpeg | cannot find document handler for file type: 'jpg'
  pnm  | cannot find document handler for file type: 'pnm'
  svg  | cannot find document handler for file type: 'svg'
- cbz  | cannot find document handler for file type: 'cbz'
- docx | cannot find document handler for file type: 'docx'
  txt  | cannot find document handler for file type: 'txt'
  fb2  | cannot find document handler for file type: 'fb2'
 (8 rows)
@@ -29,12 +34,12 @@ SET pg_mupdf.document_handlers = 'html,img,svg,cbz,office,txt,fb2';
 SELECT f, mupdf_render(data, t) FROM mupdf_inputs;
   f   | mupdf_render 
 ------+--------------
+ cbz  | rendered
+ docx | rendered
  png  | rendered
  jpeg | rendered
  pnm  | rendered
  svg  | rendered
- cbz  | rendered
- docx | rendered
  txt  | rendered
  fb2  | rendered
 (8 rows)

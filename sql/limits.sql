@@ -15,15 +15,15 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 
 SET pg_mupdf.memory_limit = '20MB';
-SELECT mupdf_try('<p>x</p>', 'png', 'resolution=300');
+SELECT mupdf_try('<p>x</p>', 'pclm', 'resolution=300');
 SELECT mupdf_try('<p>x</p>', 'txt', '');
 SET pg_mupdf.memory_limit = '64kB';
 SELECT mupdf_try('<p>x</p>', 'txt', '');
 SET pg_mupdf.memory_limit = 0;
-SELECT mupdf_try('<p>x</p>', 'png', 'resolution=300');
+SELECT mupdf_try('<p>x</p>', 'pclm', 'resolution=300');
 RESET pg_mupdf.memory_limit;
 -- a single allocation over 1 GB is refused without the limit DETAIL
-SELECT mupdf_try('<p>x</p>', 'png', 'resolution=3000');
+SELECT mupdf_try('<p>x</p>', 'pclm', 'resolution=3000');
 
 -- only superusers can change it
 CREATE ROLE regress_mupdf_user;
