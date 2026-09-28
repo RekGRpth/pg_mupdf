@@ -1,0 +1,87 @@
+CREATE EXTENSION IF NOT EXISTS pg_mupdf;
+NOTICE:  extension "pg_mupdf" already exists, skipping
+SELECT length(mupdf('', 'html', 'txt')); -- load the module
+ length 
+--------
+      0
+(1 row)
+
+SHOW pg_mupdf.document_handlers;
+ pg_mupdf.document_handlers 
+----------------------------
+ html,xhtml
+(1 row)
+
+CREATE TABLE mupdf_doc AS SELECT mupdf('<p>inside pdf</p>') AS pdf;
+-- MuPDF picks the parser by content, not by input_type: with the default
+-- handlers the PDF parser is unreachable whatever input_type says
+SELECT mupdf(pdf, 'pdf', 'txt') FROM mupdf_doc;
+ERROR:  cannot find document handler for file type: 'pdf'
+SELECT position('%PDF'::bytea in mupdf(pdf, 'html', 'txt')) > 0 AS parsed_as_html FROM mupdf_doc;
+ parsed_as_html 
+----------------
+ t
+(1 row)
+
+SET pg_mupdf.document_handlers = html, pdf;
+SHOW pg_mupdf.document_handlers;
+ pg_mupdf.document_handlers 
+----------------------------
+ html, pdf
+(1 row)
+
+SELECT convert_from(mupdf(pdf, 'pdf', 'txt'), 'utf8') FROM mupdf_doc;
+ convert_from 
+--------------
+ inside pdf  +
+             +
+ 
+(1 row)
+
+SELECT convert_from(mupdf(pdf, 'nosuch', 'txt'), 'utf8') FROM mupdf_doc;
+ convert_from 
+--------------
+ inside pdf  +
+             +
+ 
+(1 row)
+
+-- a document without pages
+SELECT length(mupdf(mupdf('<p>x</p>', 'html', 'pdf', '', ''), 'pdf', 'txt'));
+WARNING:  document has no pages
+ length 
+--------
+      0
+(1 row)
+
+-- invalid values
+SET pg_mupdf.document_handlers = 'html,foo';
+ERROR:  invalid value for parameter "pg_mupdf.document_handlers": "html,foo"
+DETAIL:  Document handler "foo" is unknown or not available in this MuPDF build.
+SET pg_mupdf.document_handlers = 'html,,pdf';
+ERROR:  invalid value for parameter "pg_mupdf.document_handlers": "html,,pdf"
+DETAIL:  List syntax is invalid.
+SET pg_mupdf.document_handlers = '"HTML"';
+ERROR:  invalid value for parameter "pg_mupdf.document_handlers": ""HTML""
+DETAIL:  Document handler "HTML" is unknown or not available in this MuPDF build.
+SET pg_mupdf.document_handlers = '';
+SELECT mupdf('<p>x</p>');
+ERROR:  No document handlers registered
+RESET pg_mupdf.document_handlers;
+-- only superusers can change it
+CREATE ROLE regress_mupdf_user;
+GRANT SELECT ON mupdf_doc TO regress_mupdf_user;
+SET ROLE regress_mupdf_user;
+SET pg_mupdf.document_handlers = 'html,pdf';
+ERROR:  permission denied to set parameter "pg_mupdf.document_handlers"
+SELECT set_config('pg_mupdf.document_handlers', 'pdf', false);
+ERROR:  permission denied to set parameter "pg_mupdf.document_handlers"
+SELECT mupdf(pdf, 'pdf', 'txt') FROM mupdf_doc;
+ERROR:  cannot find document handler for file type: 'pdf'
+RESET ROLE;
+-- the prefix is reserved
+SET pg_mupdf.nosuch = 1;
+ERROR:  invalid configuration parameter name "pg_mupdf.nosuch"
+DETAIL:  "pg_mupdf" is a reserved prefix.
+DROP TABLE mupdf_doc;
+DROP ROLE regress_mupdf_user;

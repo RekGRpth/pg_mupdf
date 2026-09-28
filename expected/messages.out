@@ -1,0 +1,137 @@
+CREATE EXTENSION IF NOT EXISTS pg_mupdf;
+NOTICE:  extension "pg_mupdf" already exists, skipping
+-- MuPDF warnings are reported after MuPDF returns
+SELECT mupdf('<p>x</p>', 'html', 'txt', '', 'garbage') IS NOT NULL AS ok;
+WARNING:  skipping invalid page range
+ ok 
+----
+ t
+(1 row)
+
+-- at most 100 per call
+SELECT mupdf(string_agg('<img src="x' || i || '">', ''), 'html', 'txt') IS NOT NULL AS ok FROM generate_series(1, 150) i;
+WARNING:  html: cannot load image src='x1'
+WARNING:  html: cannot load image src='x2'
+WARNING:  html: cannot load image src='x3'
+WARNING:  html: cannot load image src='x4'
+WARNING:  html: cannot load image src='x5'
+WARNING:  html: cannot load image src='x6'
+WARNING:  html: cannot load image src='x7'
+WARNING:  html: cannot load image src='x8'
+WARNING:  html: cannot load image src='x9'
+WARNING:  html: cannot load image src='x10'
+WARNING:  html: cannot load image src='x11'
+WARNING:  html: cannot load image src='x12'
+WARNING:  html: cannot load image src='x13'
+WARNING:  html: cannot load image src='x14'
+WARNING:  html: cannot load image src='x15'
+WARNING:  html: cannot load image src='x16'
+WARNING:  html: cannot load image src='x17'
+WARNING:  html: cannot load image src='x18'
+WARNING:  html: cannot load image src='x19'
+WARNING:  html: cannot load image src='x20'
+WARNING:  html: cannot load image src='x21'
+WARNING:  html: cannot load image src='x22'
+WARNING:  html: cannot load image src='x23'
+WARNING:  html: cannot load image src='x24'
+WARNING:  html: cannot load image src='x25'
+WARNING:  html: cannot load image src='x26'
+WARNING:  html: cannot load image src='x27'
+WARNING:  html: cannot load image src='x28'
+WARNING:  html: cannot load image src='x29'
+WARNING:  html: cannot load image src='x30'
+WARNING:  html: cannot load image src='x31'
+WARNING:  html: cannot load image src='x32'
+WARNING:  html: cannot load image src='x33'
+WARNING:  html: cannot load image src='x34'
+WARNING:  html: cannot load image src='x35'
+WARNING:  html: cannot load image src='x36'
+WARNING:  html: cannot load image src='x37'
+WARNING:  html: cannot load image src='x38'
+WARNING:  html: cannot load image src='x39'
+WARNING:  html: cannot load image src='x40'
+WARNING:  html: cannot load image src='x41'
+WARNING:  html: cannot load image src='x42'
+WARNING:  html: cannot load image src='x43'
+WARNING:  html: cannot load image src='x44'
+WARNING:  html: cannot load image src='x45'
+WARNING:  html: cannot load image src='x46'
+WARNING:  html: cannot load image src='x47'
+WARNING:  html: cannot load image src='x48'
+WARNING:  html: cannot load image src='x49'
+WARNING:  html: cannot load image src='x50'
+WARNING:  html: cannot load image src='x51'
+WARNING:  html: cannot load image src='x52'
+WARNING:  html: cannot load image src='x53'
+WARNING:  html: cannot load image src='x54'
+WARNING:  html: cannot load image src='x55'
+WARNING:  html: cannot load image src='x56'
+WARNING:  html: cannot load image src='x57'
+WARNING:  html: cannot load image src='x58'
+WARNING:  html: cannot load image src='x59'
+WARNING:  html: cannot load image src='x60'
+WARNING:  html: cannot load image src='x61'
+WARNING:  html: cannot load image src='x62'
+WARNING:  html: cannot load image src='x63'
+WARNING:  html: cannot load image src='x64'
+WARNING:  html: cannot load image src='x65'
+WARNING:  html: cannot load image src='x66'
+WARNING:  html: cannot load image src='x67'
+WARNING:  html: cannot load image src='x68'
+WARNING:  html: cannot load image src='x69'
+WARNING:  html: cannot load image src='x70'
+WARNING:  html: cannot load image src='x71'
+WARNING:  html: cannot load image src='x72'
+WARNING:  html: cannot load image src='x73'
+WARNING:  html: cannot load image src='x74'
+WARNING:  html: cannot load image src='x75'
+WARNING:  html: cannot load image src='x76'
+WARNING:  html: cannot load image src='x77'
+WARNING:  html: cannot load image src='x78'
+WARNING:  html: cannot load image src='x79'
+WARNING:  html: cannot load image src='x80'
+WARNING:  html: cannot load image src='x81'
+WARNING:  html: cannot load image src='x82'
+WARNING:  html: cannot load image src='x83'
+WARNING:  html: cannot load image src='x84'
+WARNING:  html: cannot load image src='x85'
+WARNING:  html: cannot load image src='x86'
+WARNING:  html: cannot load image src='x87'
+WARNING:  html: cannot load image src='x88'
+WARNING:  html: cannot load image src='x89'
+WARNING:  html: cannot load image src='x90'
+WARNING:  html: cannot load image src='x91'
+WARNING:  html: cannot load image src='x92'
+WARNING:  html: cannot load image src='x93'
+WARNING:  html: cannot load image src='x94'
+WARNING:  html: cannot load image src='x95'
+WARNING:  html: cannot load image src='x96'
+WARNING:  html: cannot load image src='x97'
+WARNING:  html: cannot load image src='x98'
+WARNING:  html: cannot load image src='x99'
+WARNING:  html: cannot load image src='x100'
+WARNING:  50 more MuPDF messages skipped
+ ok 
+----
+ t
+(1 row)
+
+-- no cleanup noise on error paths
+SELECT mupdf('<p>x</p>', 'html', 'nosuchout');
+ERROR:  unknown output document format: nosuchout
+-- local files are not read (relative paths would resolve against the data directory)
+SELECT mupdf('<link rel="stylesheet" href="postgresql.conf"><p>x</p>', 'html', 'txt') IS NOT NULL AS ok;
+WARNING:  format error: cannot find entry postgresql.conf
+WARNING:  ignoring stylesheet postgresql.conf
+ ok 
+----
+ t
+(1 row)
+
+SELECT mupdf('<img src="file:///etc/passwd"><p>x</p>', 'html', 'txt') IS NOT NULL AS ok;
+WARNING:  html: cannot load image src='file:///etc/passwd'
+ ok 
+----
+ t
+(1 row)
+

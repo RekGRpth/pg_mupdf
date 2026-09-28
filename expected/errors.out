@@ -1,0 +1,45 @@
+CREATE EXTENSION IF NOT EXISTS pg_mupdf;
+NOTICE:  extension "pg_mupdf" already exists, skipping
+-- NULL arguments
+SELECT mupdf(NULL);
+ERROR:  input_data is null!
+SELECT mupdf(NULL::bytea);
+ERROR:  input_data is null!
+SELECT mupdf('<p>x</p>', NULL);
+ERROR:  input_type is null!
+SELECT mupdf('<p>x</p>', 'html', NULL);
+ERROR:  output_type is null!
+SELECT mupdf('<p>x</p>', 'html', 'pdf', NULL);
+ERROR:  options is null!
+SELECT mupdf('<p>x</p>', 'html', 'pdf', '', NULL);
+ERROR:  range is null!
+-- unknown types used to crash the backend
+SELECT mupdf('<p>x</p>', 'nosuchtype');
+ERROR:  cannot find document handler for file type: 'nosuchtype'
+SELECT mupdf('<p>x</p>', 'html', 'nosuchout');
+ERROR:  unknown output document format: nosuchout
+SELECT mupdf('<p>x</p>', '');
+ERROR:  cannot find document handler for file type: ''
+SELECT mupdf('<p>x</p>', 'html', '');
+ERROR:  unknown output document format: 
+-- the output type is a format name, never a file
+SELECT mupdf('<p>x</p>', 'html', '/tmp/pg_mupdf_regress.pdf');
+ERROR:  unknown output document format: /tmp/pg_mupdf_regress.pdf
+-- svg output used to crash; svg holds one page only
+SELECT position('<svg'::bytea in mupdf('<p>x</p>', 'html', 'svg')) > 0 AS svg;
+ svg 
+-----
+ t
+(1 row)
+
+SELECT mupdf(repeat('<p>page</p>', 60), 'html', 'svg');
+ERROR:  cannot write multiple pages to a single SVG output
+-- the session survives all of the above
+SELECT convert_from(mupdf('<p>alive</p>', 'html', 'txt'), 'utf8');
+ convert_from 
+--------------
+ alive       +
+             +
+ 
+(1 row)
+

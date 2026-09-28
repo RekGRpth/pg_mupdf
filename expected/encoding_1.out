@@ -1,0 +1,4 @@
+-- needs a UTF8 database (expected/encoding_1.out covers the others)
+SELECT getdatabaseencoding() <> 'UTF8' AS skip_test \gset
+\if :skip_test
+\quit
