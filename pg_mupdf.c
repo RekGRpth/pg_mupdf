@@ -2,6 +2,7 @@
 
 #include <fmgr.h>
 #include <limits.h>
+#include <mb/pg_wchar.h>
 #include <miscadmin.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
@@ -168,9 +169,10 @@ static void runrange(fz_context *ctx, fz_document *doc, fz_document_writer *wri,
     }
 }
 
-EXTENSION(pg_mupdf) {
+static Datum pg_mupdf_internal(FunctionCallInfo fcinfo, bool is_text) {
     bytea *pdf = NULL;
-    char *input_type, *output_type, *options, *range;
+    char *input, *input_type, *output_type, *options, *range;
+    int input_len;
     fz_buffer *buf = NULL;
     fz_context *ctx;
     fz_document *doc = NULL;
@@ -194,6 +196,10 @@ EXTENSION(pg_mupdf) {
     if (PG_ARGISNULL(3)) ereport(ERROR, (errmsg("options is null!")));
     if (PG_ARGISNULL(4)) ereport(ERROR, (errmsg("range is null!")));
     input_data = PG_GETARG_TEXT_PP(0);
+    input = VARDATA_ANY(input_data);
+    input_len = VARSIZE_ANY_EXHDR(input_data);
+    /* text is characters, MuPDF reads UTF-8; in SQL_ASCII text is just bytes */
+    if (is_text && GetDatabaseEncoding() != PG_SQL_ASCII && (input = pg_server_to_any(input, input_len, PG_UTF8)) != VARDATA_ANY(input_data)) input_len = strlen(input);
     input_type = TextDatumGetCString(PG_GETARG_DATUM(1));
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
@@ -220,7 +226,7 @@ EXTENSION(pg_mupdf) {
         foreach(l, handlers) fz_register_document_handler(ctx, pg_mupdf_handler(lfirst(l)));
         fz_set_use_document_css(ctx, 1);
         buf = fz_new_buffer(ctx, 0);
-        stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
+        stm = fz_open_memory(ctx, (unsigned char *)input, input_len);
         doc = fz_open_document_with_stream(ctx, input_type, stm);
         wri = fz_new_document_writer_with_buffer(ctx, buf, output_type, options);
         runrange(ctx, doc, wri, range);
@@ -248,10 +254,24 @@ EXTENSION(pg_mupdf) {
     fz_drop_context(ctx);
     MemoryContextDelete(mcxt);
     pg_mupdf_report_messages();
+    if (input != VARDATA_ANY(input_data)) pfree(input);
     PG_FREE_IF_COPY(input_data, 0);
     pfree(input_type);
     pfree(output_type);
     pfree(options);
     pfree(range);
     PG_RETURN_BYTEA_P(pdf);
+}
+
+EXTENSION(pg_mupdf_text) {
+    return pg_mupdf_internal(fcinfo, true);
+}
+
+EXTENSION(pg_mupdf_bytea) {
+    return pg_mupdf_internal(fcinfo, false);
+}
+
+/* mupdf(text, ...) of version 1.0 points here */
+EXTENSION(pg_mupdf) {
+    return pg_mupdf_internal(fcinfo, true);
 }

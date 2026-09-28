@@ -1,5 +1,5 @@
 $(OBJS): Makefile
-DATA = pg_mupdf--1.0.sql
+DATA = pg_mupdf--1.0.sql pg_mupdf--1.0--2.0.sql pg_mupdf--2.0.sql
 EXTENSION = pg_mupdf
 MODULE_big = $(EXTENSION)
 OBJS = $(EXTENSION).o
