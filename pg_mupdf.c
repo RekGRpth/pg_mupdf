@@ -146,7 +146,6 @@ EXTENSION(pg_mupdf) {
     fz_document_writer *wri = NULL;
     List *handlers;
     ListCell *l;
-    fz_output *out = NULL;
     fz_stream *stm = NULL;
     size_t output_len;
     text *input_data;
@@ -173,7 +172,6 @@ EXTENSION(pg_mupdf) {
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
     fz_var(buf);
     fz_var(doc);
-    fz_var(out);
     fz_var(pdf);
     fz_var(stm);
     fz_var(wri);
@@ -181,13 +179,11 @@ EXTENSION(pg_mupdf) {
         foreach(l, handlers) fz_register_document_handler(ctx, pg_mupdf_handler(lfirst(l)));
         fz_set_use_document_css(ctx, 1);
         buf = fz_new_buffer(ctx, 0);
-        out = fz_new_output_with_buffer(ctx, buf);
         stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
         doc = fz_open_document_with_stream(ctx, input_type, stm);
-        wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
+        wri = fz_new_document_writer_with_buffer(ctx, buf, output_type, options);
         runrange(ctx, doc, wri, range);
         fz_close_document_writer(ctx, wri);
-        fz_close_output(ctx, out);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
         pdf = cstring_to_text_with_len((const char *)output_data, output_len);
     } fz_always(ctx) {
