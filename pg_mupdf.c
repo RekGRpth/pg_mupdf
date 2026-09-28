@@ -2,6 +2,7 @@
 
 #include <fmgr.h>
 #include <utils/builtins.h>
+#include <utils/memutils.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
@@ -13,11 +14,19 @@
 PG_MODULE_MAGIC;
 
 static void *fz_malloc_default_my(void *opaque, size_t size) {
-    return size ? MemoryContextAlloc(opaque, size) : NULL;
+    if (!size || !AllocSizeIsValid(size)) return NULL;
+    return MemoryContextAllocExtended(opaque, size, MCXT_ALLOC_NO_OOM);
 }
 
 static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
-    return (old && size) ? repalloc(old, size) : (size ? MemoryContextAlloc(opaque, size) : old);
+    if (!old) return fz_malloc_default_my(opaque, size);
+    if (!size) return old;
+    if (!AllocSizeIsValid(size)) return NULL;
+#if PG_VERSION_NUM >= 160000
+    return repalloc_extended(old, size, MCXT_ALLOC_NO_OOM);
+#else
+    return repalloc(old, size);
+#endif
 }
 
 static void fz_free_default_my(void *opaque, void *ptr) {
