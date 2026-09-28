@@ -126,6 +126,8 @@ static void fz_free_default_my(void *opaque, void *ptr) {
 
 /* called from inside MuPDF, where ereport must not be used: only remember the message */
 static void pg_mupdf_message_callback(void *user, const char *message) {
+    /* cleanup noise after an error that is reported anyway */
+    if (!strcmp(message, "dropping unclosed document writer") || !strcmp(message, "dropping unclosed output")) return;
     if (messages_count < lengthof(messages)) strlcpy(messages[messages_count++], message, sizeof(messages[0]));
     else messages_skipped++;
 }
