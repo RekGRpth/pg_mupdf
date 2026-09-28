@@ -55,14 +55,14 @@ static void runrange(fz_context *ctx, fz_document *doc, fz_document_writer *wri,
 }
 
 EXTENSION(pg_mupdf) {
-    bytea *pdf;
+    bytea *pdf = NULL;
     char *input_type, *output_type, *options, *range;
-    fz_buffer *buf;
+    fz_buffer *buf = NULL;
     fz_context *ctx;
-    fz_document *doc;
-    fz_document_writer *wri;
-    fz_output *out;
-    fz_stream *stm;
+    fz_document *doc = NULL;
+    fz_document_writer *wri = NULL;
+    fz_output *out = NULL;
+    fz_stream *stm = NULL;
     size_t output_len;
     text *input_data;
     unsigned char *output_data;
@@ -85,6 +85,12 @@ EXTENSION(pg_mupdf) {
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
+    fz_var(buf);
+    fz_var(doc);
+    fz_var(out);
+    fz_var(pdf);
+    fz_var(stm);
+    fz_var(wri);
     fz_try(ctx) {
         fz_register_document_handlers(ctx);
         fz_set_use_document_css(ctx, 1);
@@ -105,7 +111,9 @@ EXTENSION(pg_mupdf) {
         fz_drop_stream(ctx, stm);
         fz_drop_buffer(ctx, buf);
     } fz_catch(ctx) {
-        fz_rethrow(ctx);
+        char *message = pstrdup(fz_convert_error(ctx, NULL));
+        fz_drop_context(ctx);
+        ereport(ERROR, (errmsg("%s", message)));
     }
     fz_drop_context(ctx);
     pfree(input_type);
