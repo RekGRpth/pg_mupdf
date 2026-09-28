@@ -53,7 +53,9 @@ static const struct {
 
 static bool memory_limit_exceeded;
 static char *document_handlers;
+static char messages[100][256];
 static int memory_limit;
+static int messages_count, messages_skipped;
 
 static fz_document_handler *pg_mupdf_handler(const char *name) {
     for (size_t i = 0; i < lengthof(pg_mupdf_handlers); i++) if (!strcmp(pg_mupdf_handlers[i].name, name)) return pg_mupdf_handlers[i].handler;
@@ -122,12 +124,17 @@ static void fz_free_default_my(void *opaque, void *ptr) {
     if (ptr) pfree(ptr);
 }
 
-static void pg_mupdf_error_callback(void *user, const char *message) {
-    ereport(WARNING, (errmsg("%s", message)));
+/* called from inside MuPDF, where ereport must not be used: only remember the message */
+static void pg_mupdf_message_callback(void *user, const char *message) {
+    if (messages_count < lengthof(messages)) strlcpy(messages[messages_count++], message, sizeof(messages[0]));
+    else messages_skipped++;
 }
 
-static void pg_mupdf_warning_callback(void *user, const char *message) {
-    ereport(WARNING, (errmsg("%s", message)));
+static void pg_mupdf_report_messages(void) {
+    int count = messages_count, skipped = messages_skipped;
+    messages_count = messages_skipped = 0;
+    for (int i = 0; i < count; i++) ereport(WARNING, (errmsg("%s", messages[i])));
+    if (skipped) ereport(WARNING, (errmsg("%d more MuPDF messages skipped", skipped)));
 }
 
 static void runpage(fz_context *ctx, fz_document *doc, fz_document_writer *wri, int number) {
@@ -186,13 +193,14 @@ EXTENSION(pg_mupdf) {
     mcxt = AllocSetContextCreate(CurrentMemoryContext, "pg_mupdf", ALLOCSET_DEFAULT_SIZES);
     fz_alloc_default_my.user = mcxt;
     memory_limit_exceeded = false;
+    messages_count = messages_skipped = 0;
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_DEFAULT))) {
         MemoryContextDelete(mcxt);
         CHECK_FOR_INTERRUPTS();
         ereport(ERROR, (errmsg("!fz_new_context")));
     }
-    fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
-    fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
+    fz_set_error_callback(ctx, pg_mupdf_message_callback, NULL);
+    fz_set_warning_callback(ctx, pg_mupdf_message_callback, NULL);
     fz_var(buf);
     fz_var(doc);
     fz_var(pdf);
@@ -218,12 +226,14 @@ EXTENSION(pg_mupdf) {
         char *message = pstrdup(fz_convert_error(ctx, NULL));
         fz_drop_context(ctx);
         MemoryContextDelete(mcxt);
+        pg_mupdf_report_messages();
         CHECK_FOR_INTERRUPTS();
         if (memory_limit_exceeded) ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED), errmsg("%s", message), errdetail("pg_mupdf.memory_limit (%d kB) exceeded.", memory_limit)));
         ereport(ERROR, (errmsg("%s", message)));
     }
     fz_drop_context(ctx);
     MemoryContextDelete(mcxt);
+    pg_mupdf_report_messages();
     PG_FREE_IF_COPY(input_data, 0);
     pfree(input_type);
     pfree(output_type);
