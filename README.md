@@ -2,10 +2,10 @@ PostgreSQL implementation of Convert HTML to PDF using MuPDF.
 
 ### Requirements
 
-- PostgreSQL with the `pgxs` build infrastructure (`pg_config` on `PATH`).
+- PostgreSQL 9.4 or later with the `pgxs` build infrastructure (`pg_config` on `PATH`).
 - [MuPDF](https://mupdf.com/) installed as a shared library (`libmupdf`), headers included.
 
-Developed and tested with PostgreSQL 19 and MuPDF 1.27.
+Tested with PostgreSQL 9.4 to 19 and MuPDF 1.27.
 
 ### Installation
 
@@ -24,7 +24,7 @@ create extension pg_mupdf;
 
 A database with version 1.0 is updated with `alter extension pg_mupdf update;`, which adds the `bytea` variant of `mupdf()`. Version 2.0 also changes behavior: by default only HTML and XHTML are parsed (see `pg_mupdf.document_handlers`), and `text` input is converted to UTF-8 (see [Input encoding](#input-encoding)).
 
-Run the regression tests with `make installcheck` (requires a running server and superuser access; the tests create two temporary databases and connect as a temporary role).
+Run the regression tests with `make installcheck` (requires a running server and superuser access; the tests create three temporary databases and connect as a temporary role).
 
 ### Use of the extension
 

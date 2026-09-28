@@ -78,4 +78,4 @@ SELECT convert_from(mupdf('<p>alive</p>', 'html', 'txt'), 'utf8');
  
 (1 row)
 
-DROP FUNCTION mupdf_try;
+DROP FUNCTION mupdf_try(text, text, text);

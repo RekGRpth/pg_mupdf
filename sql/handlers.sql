@@ -42,8 +42,5 @@ SELECT set_config('pg_mupdf.document_handlers', 'pdf', false);
 SELECT mupdf(pdf, 'pdf', 'txt') FROM mupdf_doc;
 RESET ROLE;
 
--- the prefix is reserved
-SET pg_mupdf.nosuch = 1;
-
 DROP TABLE mupdf_doc;
 DROP ROLE regress_mupdf_user;

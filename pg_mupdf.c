@@ -7,12 +7,22 @@
 #include <utils/builtins.h>
 #include <utils/guc.h>
 #include <utils/memutils.h>
+#if PG_VERSION_NUM >= 100000
 #include <utils/varlena.h>
+#endif
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
 
 #include <mupdf/fitz.h>
+
+#ifndef MAX_KILOBYTES
+#if SIZEOF_SIZE_T > 4 && SIZEOF_LONG > 4
+#define MAX_KILOBYTES INT_MAX
+#else
+#define MAX_KILOBYTES (INT_MAX / 1024)
+#endif
+#endif
 
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
@@ -56,6 +66,7 @@ static bool memory_limit_exceeded;
 static char *document_handlers;
 static char messages[100][256];
 static int memory_limit;
+static Size memory_allocated;
 static int messages_count, messages_skipped;
 
 static fz_document_handler *pg_mupdf_handler(const char *name) {
@@ -98,34 +109,62 @@ void _PG_init(void) {
 }
 
 /* failing the allocation is the only safe way to stop MuPDF: it unwinds to our fz_catch */
-static bool alloc_allowed(MemoryContext mcxt, size_t size) {
+static bool alloc_allowed(size_t size) {
     memory_limit_exceeded = false; /* only about the last allocation: MuPDF may recover from a refused one */
     if (!AllocSizeIsValid(size) || QueryCancelPending || ProcDiePending) return false;
-    if (memory_limit && MemoryContextMemAllocated(mcxt, false) + size > (Size)memory_limit * 1024) {
+    if (memory_limit && memory_allocated + size > (Size)memory_limit * 1024) {
         memory_limit_exceeded = true;
         return false;
     }
     return true;
 }
 
-static void *fz_malloc_default_my(void *opaque, size_t size) {
-    if (!size || !alloc_allowed(opaque, size)) return NULL;
-    return MemoryContextAllocExtended(opaque, size, MCXT_ALLOC_NO_OOM);
-}
-
-static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
-    if (!old) return fz_malloc_default_my(opaque, size);
-    if (!size) return old;
-    if (!alloc_allowed(opaque, size)) return NULL;
+/* out of memory must give NULL, not ERROR: MCXT_ALLOC_NO_OOM appeared in 9.5, repalloc_extended in 16 */
+static void *alloc_no_oom(MemoryContext mcxt, void *old, Size size) {
 #if PG_VERSION_NUM >= 160000
-    return repalloc_extended(old, size, MCXT_ALLOC_NO_OOM);
+    return old ? repalloc_extended(old, size, MCXT_ALLOC_NO_OOM) : MemoryContextAllocExtended(mcxt, size, MCXT_ALLOC_NO_OOM);
 #else
-    return repalloc(old, size);
+    MemoryContext oldcxt = CurrentMemoryContext;
+    void *volatile ptr = NULL;
+#if PG_VERSION_NUM >= 90500
+    if (!old) return MemoryContextAllocExtended(mcxt, size, MCXT_ALLOC_NO_OOM);
+#endif
+    PG_TRY();
+    {
+        ptr = old ? repalloc(old, size) : MemoryContextAlloc(mcxt, size);
+    }
+    PG_CATCH();
+    {
+        MemoryContextSwitchTo(oldcxt);
+        FlushErrorState();
+    }
+    PG_END_TRY();
+    return ptr;
 #endif
 }
 
+static void *fz_malloc_default_my(void *opaque, size_t size) {
+    void *ptr;
+    if (!size || !alloc_allowed(size)) return NULL;
+    if ((ptr = alloc_no_oom(opaque, NULL, size))) memory_allocated += GetMemoryChunkSpace(ptr);
+    return ptr;
+}
+
+static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
+    Size old_space;
+    void *ptr;
+    if (!old) return fz_malloc_default_my(opaque, size);
+    if (!size) return old;
+    if (!alloc_allowed(size)) return NULL;
+    old_space = GetMemoryChunkSpace(old);
+    if ((ptr = alloc_no_oom(opaque, old, size))) memory_allocated = memory_allocated - old_space + GetMemoryChunkSpace(ptr);
+    return ptr;
+}
+
 static void fz_free_default_my(void *opaque, void *ptr) {
-    if (ptr) pfree(ptr);
+    if (!ptr) return;
+    memory_allocated -= GetMemoryChunkSpace(ptr);
+    pfree(ptr);
 }
 
 /* called from inside MuPDF, where ereport must not be used: only remember the message */
@@ -205,8 +244,13 @@ static Datum pg_mupdf_internal(FunctionCallInfo fcinfo, bool is_text) {
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     if (!SplitIdentifierString(pstrdup(document_handlers), ',', &handlers)) ereport(ERROR, (errmsg("invalid pg_mupdf.document_handlers")));
+#if PG_VERSION_NUM >= 90600
     mcxt = AllocSetContextCreate(CurrentMemoryContext, "pg_mupdf", ALLOCSET_DEFAULT_SIZES);
+#else
+    mcxt = AllocSetContextCreate(CurrentMemoryContext, "pg_mupdf", ALLOCSET_DEFAULT_MINSIZE, ALLOCSET_DEFAULT_INITSIZE, ALLOCSET_DEFAULT_MAXSIZE);
+#endif
     fz_alloc_default_my.user = mcxt;
+    memory_allocated = 0;
     memory_limit_exceeded = false;
     messages_count = messages_skipped = 0;
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_DEFAULT))) {
@@ -232,7 +276,7 @@ static Datum pg_mupdf_internal(FunctionCallInfo fcinfo, bool is_text) {
         runrange(ctx, doc, wri, range);
         fz_close_document_writer(ctx, wri);
         output_len = fz_buffer_storage(ctx, buf, &output_data);
-        if (!AllocSizeIsValid(output_len + VARHDRSZ) || !(pdf = MemoryContextAllocExtended(CurrentMemoryContext, output_len + VARHDRSZ, MCXT_ALLOC_NO_OOM))) fz_throw(ctx, FZ_ERROR_LIMIT, "cannot allocate result of %zu bytes", output_len);
+        if (!AllocSizeIsValid(output_len + VARHDRSZ) || !(pdf = alloc_no_oom(CurrentMemoryContext, NULL, output_len + VARHDRSZ))) fz_throw(ctx, FZ_ERROR_LIMIT, "cannot allocate result of %zu bytes", output_len);
         SET_VARSIZE(pdf, output_len + VARHDRSZ);
         memcpy(VARDATA(pdf), output_data, output_len);
     } fz_always(ctx) {

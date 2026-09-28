@@ -54,4 +54,4 @@ SELECT f, convert_from(mupdf(data, t, 'txt'), 'utf8') FROM mupdf_inputs WHERE f 
 (3 rows)
 
 DROP TABLE mupdf_inputs;
-DROP FUNCTION mupdf_render;
+DROP FUNCTION mupdf_render(bytea, text);

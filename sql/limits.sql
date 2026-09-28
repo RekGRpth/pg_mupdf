@@ -38,4 +38,4 @@ SELECT length(mupdf(repeat('<p>hello world</p>', 100000)));
 RESET statement_timeout;
 SELECT convert_from(mupdf('<p>alive</p>', 'html', 'txt'), 'utf8');
 
-DROP FUNCTION mupdf_try;
+DROP FUNCTION mupdf_try(text, text, text);

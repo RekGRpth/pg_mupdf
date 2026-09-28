@@ -102,9 +102,5 @@ ERROR:  permission denied to set parameter "pg_mupdf.document_handlers"
 SELECT mupdf(pdf, 'pdf', 'txt') FROM mupdf_doc;
 ERROR:  cannot find document handler for file type: 'pdf'
 RESET ROLE;
--- the prefix is reserved
-SET pg_mupdf.nosuch = 1;
-ERROR:  invalid configuration parameter name "pg_mupdf.nosuch"
-DETAIL:  "pg_mupdf" is a reserved prefix.
 DROP TABLE mupdf_doc;
 DROP ROLE regress_mupdf_user;

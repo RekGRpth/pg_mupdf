@@ -24,5 +24,5 @@ SELECT length(mupdf('<p>x</p>', 'html', 'txt', '', 'garbage'));
 -- compressed (TOAST) input used to be freed before MuPDF read it
 CREATE TABLE mupdf_toast (h text);
 INSERT INTO mupdf_toast VALUES (repeat('<p>hello world</p>', 1000)), (repeat('<p>hello world</p>', 20000));
-SELECT pg_column_compression(h) IS NOT NULL AS compressed, mupdf(h, 'html', 'txt') = mupdf(h || '', 'html', 'txt') AS same FROM mupdf_toast;
+SELECT pg_column_size(h) < octet_length(h) AS compressed, mupdf(h, 'html', 'txt') = mupdf(h || '', 'html', 'txt') AS same FROM mupdf_toast;
 DROP TABLE mupdf_toast;

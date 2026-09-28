@@ -20,4 +20,4 @@ SELECT f, mupdf_render(data, t) FROM mupdf_inputs;
 SELECT f, convert_from(mupdf(data, t, 'txt'), 'utf8') FROM mupdf_inputs WHERE f IN ('docx', 'txt', 'fb2');
 
 DROP TABLE mupdf_inputs;
-DROP FUNCTION mupdf_render;
+DROP FUNCTION mupdf_render(bytea, text);
