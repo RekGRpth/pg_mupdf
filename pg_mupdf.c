@@ -1,6 +1,8 @@
 #include <postgres.h>
 
 #include <fmgr.h>
+#include <limits.h>
+#include <miscadmin.h>
 #include <utils/builtins.h>
 #include <utils/guc.h>
 #include <utils/memutils.h>
@@ -49,7 +51,9 @@ static const struct {
     {"xps", &xps_document_handler},
 };
 
+static bool memory_limit_exceeded;
 static char *document_handlers;
+static int memory_limit;
 
 static fz_document_handler *pg_mupdf_handler(const char *name) {
     for (size_t i = 0; i < lengthof(pg_mupdf_handlers); i++) if (!strcmp(pg_mupdf_handlers[i].name, name)) return pg_mupdf_handlers[i].handler;
@@ -79,6 +83,7 @@ static bool check_document_handlers(char **newval, void **extra, GucSource sourc
 
 PGDLLEXPORT void _PG_init(void);
 void _PG_init(void) {
+    DefineCustomIntVariable("pg_mupdf.memory_limit", "Maximum memory MuPDF may allocate in one call.", "0 means no limit.", &memory_limit, 1024 * 1024, 0, MAX_KILOBYTES, PGC_SUSET, GUC_UNIT_KB, NULL, NULL, NULL);
     DefineCustomStringVariable("pg_mupdf.document_handlers", "MuPDF document handlers allowed to parse input.", "Comma-separated list of: cbz, epub, fb2, gz, html, img, mobi, office, pdf, svg, txt, xhtml, xps.", &document_handlers, "html,xhtml", PGC_SUSET, GUC_LIST_INPUT, check_document_handlers, NULL, NULL);
 #if PG_VERSION_NUM >= 150000
     MarkGUCPrefixReserved("pg_mupdf");
@@ -87,15 +92,25 @@ void _PG_init(void) {
 #endif
 }
 
+/* failing the allocation is the only safe way to stop MuPDF: it unwinds to our fz_catch */
+static bool alloc_allowed(MemoryContext mcxt, size_t size) {
+    if (QueryCancelPending || ProcDiePending) return false;
+    if (memory_limit && MemoryContextMemAllocated(mcxt, false) + size > (Size)memory_limit * 1024) {
+        memory_limit_exceeded = true;
+        return false;
+    }
+    return true;
+}
+
 static void *fz_malloc_default_my(void *opaque, size_t size) {
-    if (!size || !AllocSizeIsValid(size)) return NULL;
+    if (!size || !AllocSizeIsValid(size) || !alloc_allowed(opaque, size)) return NULL;
     return MemoryContextAllocExtended(opaque, size, MCXT_ALLOC_NO_OOM);
 }
 
 static void *fz_realloc_default_my(void *opaque, void *old, size_t size) {
     if (!old) return fz_malloc_default_my(opaque, size);
     if (!size) return old;
-    if (!AllocSizeIsValid(size)) return NULL;
+    if (!AllocSizeIsValid(size) || !alloc_allowed(opaque, size)) return NULL;
 #if PG_VERSION_NUM >= 160000
     return repalloc_extended(old, size, MCXT_ALLOC_NO_OOM);
 #else
@@ -146,12 +161,13 @@ EXTENSION(pg_mupdf) {
     fz_document_writer *wri = NULL;
     List *handlers;
     ListCell *l;
+    MemoryContext mcxt;
     fz_stream *stm = NULL;
     size_t output_len;
     text *input_data;
     unsigned char *output_data;
     fz_alloc_context fz_alloc_default_my = {
-        CurrentMemoryContext,
+        NULL,
         fz_malloc_default_my,
         fz_realloc_default_my,
         fz_free_default_my
@@ -167,7 +183,14 @@ EXTENSION(pg_mupdf) {
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
     if (!SplitIdentifierString(pstrdup(document_handlers), ',', &handlers)) ereport(ERROR, (errmsg("invalid pg_mupdf.document_handlers")));
-    if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
+    mcxt = AllocSetContextCreate(CurrentMemoryContext, "pg_mupdf", ALLOCSET_DEFAULT_SIZES);
+    fz_alloc_default_my.user = mcxt;
+    memory_limit_exceeded = false;
+    if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_DEFAULT))) {
+        MemoryContextDelete(mcxt);
+        CHECK_FOR_INTERRUPTS();
+        ereport(ERROR, (errmsg("!fz_new_context")));
+    }
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
     fz_var(buf);
@@ -194,9 +217,13 @@ EXTENSION(pg_mupdf) {
     } fz_catch(ctx) {
         char *message = pstrdup(fz_convert_error(ctx, NULL));
         fz_drop_context(ctx);
+        MemoryContextDelete(mcxt);
+        CHECK_FOR_INTERRUPTS();
+        if (memory_limit_exceeded) ereport(ERROR, (errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED), errmsg("%s", message), errdetail("pg_mupdf.memory_limit (%d kB) exceeded.", memory_limit)));
         ereport(ERROR, (errmsg("%s", message)));
     }
     fz_drop_context(ctx);
+    MemoryContextDelete(mcxt);
     PG_FREE_IF_COPY(input_data, 0);
     pfree(input_type);
     pfree(output_type);
