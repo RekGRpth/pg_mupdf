@@ -97,7 +97,6 @@ EXTENSION(pg_mupdf) {
         buf = fz_new_buffer(ctx, 0);
         out = fz_new_output_with_buffer(ctx, buf);
         stm = fz_open_memory(ctx, (unsigned char *)VARDATA_ANY(input_data), VARSIZE_ANY_EXHDR(input_data));
-        PG_FREE_IF_COPY(input_data, 0);
         doc = fz_open_document_with_stream(ctx, input_type, stm);
         wri = fz_new_document_writer_with_output(ctx, out, output_type, options);
         runrange(ctx, doc, wri, range);
@@ -116,6 +115,7 @@ EXTENSION(pg_mupdf) {
         ereport(ERROR, (errmsg("%s", message)));
     }
     fz_drop_context(ctx);
+    PG_FREE_IF_COPY(input_data, 0);
     pfree(input_type);
     pfree(output_type);
     pfree(options);
