@@ -2,7 +2,9 @@
 
 #include <fmgr.h>
 #include <utils/builtins.h>
+#include <utils/guc.h>
 #include <utils/memutils.h>
+#include <utils/varlena.h>
 #if PG_VERSION_NUM >= 160000
 #include <varatt.h>
 #endif
@@ -12,6 +14,78 @@
 #define EXTENSION(function) Datum (function)(PG_FUNCTION_ARGS); PG_FUNCTION_INFO_V1(function); Datum (function)(PG_FUNCTION_ARGS)
 
 PG_MODULE_MAGIC;
+
+/* not in public headers; weak, so a MuPDF build without some handler still loads */
+extern fz_document_handler cbz_document_handler __attribute__((weak));
+extern fz_document_handler epub_document_handler __attribute__((weak));
+extern fz_document_handler fb2_document_handler __attribute__((weak));
+extern fz_document_handler gz_document_handler __attribute__((weak));
+extern fz_document_handler html_document_handler __attribute__((weak));
+extern fz_document_handler img_document_handler __attribute__((weak));
+extern fz_document_handler mobi_document_handler __attribute__((weak));
+extern fz_document_handler office_document_handler __attribute__((weak));
+extern fz_document_handler pdf_document_handler __attribute__((weak));
+extern fz_document_handler svg_document_handler __attribute__((weak));
+extern fz_document_handler txt_document_handler __attribute__((weak));
+extern fz_document_handler xhtml_document_handler __attribute__((weak));
+extern fz_document_handler xps_document_handler __attribute__((weak));
+
+static const struct {
+    const char *name;
+    fz_document_handler *handler;
+} pg_mupdf_handlers[] = {
+    {"cbz", &cbz_document_handler},
+    {"epub", &epub_document_handler},
+    {"fb2", &fb2_document_handler},
+    {"gz", &gz_document_handler},
+    {"html", &html_document_handler},
+    {"img", &img_document_handler},
+    {"mobi", &mobi_document_handler},
+    {"office", &office_document_handler},
+    {"pdf", &pdf_document_handler},
+    {"svg", &svg_document_handler},
+    {"txt", &txt_document_handler},
+    {"xhtml", &xhtml_document_handler},
+    {"xps", &xps_document_handler},
+};
+
+static char *document_handlers;
+
+static fz_document_handler *pg_mupdf_handler(const char *name) {
+    for (size_t i = 0; i < lengthof(pg_mupdf_handlers); i++) if (!strcmp(pg_mupdf_handlers[i].name, name)) return pg_mupdf_handlers[i].handler;
+    return NULL;
+}
+
+static bool check_document_handlers(char **newval, void **extra, GucSource source) {
+    char *rawstring = pstrdup(*newval);
+    List *elemlist;
+    ListCell *l;
+    if (!SplitIdentifierString(rawstring, ',', &elemlist)) {
+        GUC_check_errdetail("List syntax is invalid.");
+        pfree(rawstring);
+        list_free(elemlist);
+        return false;
+    }
+    foreach(l, elemlist) if (!pg_mupdf_handler(lfirst(l))) {
+        GUC_check_errdetail("Document handler \"%s\" is unknown or not available in this MuPDF build.", (char *)lfirst(l));
+        pfree(rawstring);
+        list_free(elemlist);
+        return false;
+    }
+    pfree(rawstring);
+    list_free(elemlist);
+    return true;
+}
+
+PGDLLEXPORT void _PG_init(void);
+void _PG_init(void) {
+    DefineCustomStringVariable("pg_mupdf.document_handlers", "MuPDF document handlers allowed to parse input.", "Comma-separated list of: cbz, epub, fb2, gz, html, img, mobi, office, pdf, svg, txt, xhtml, xps.", &document_handlers, "html,xhtml", PGC_SUSET, GUC_LIST_INPUT, check_document_handlers, NULL, NULL);
+#if PG_VERSION_NUM >= 150000
+    MarkGUCPrefixReserved("pg_mupdf");
+#else
+    EmitWarningsOnPlaceholders("pg_mupdf");
+#endif
+}
 
 static void *fz_malloc_default_my(void *opaque, size_t size) {
     if (!size || !AllocSizeIsValid(size)) return NULL;
@@ -70,6 +144,8 @@ EXTENSION(pg_mupdf) {
     fz_context *ctx;
     fz_document *doc = NULL;
     fz_document_writer *wri = NULL;
+    List *handlers;
+    ListCell *l;
     fz_output *out = NULL;
     fz_stream *stm = NULL;
     size_t output_len;
@@ -91,6 +167,7 @@ EXTENSION(pg_mupdf) {
     output_type = TextDatumGetCString(PG_GETARG_DATUM(2));
     options = TextDatumGetCString(PG_GETARG_DATUM(3));
     range = TextDatumGetCString(PG_GETARG_DATUM(4));
+    if (!SplitIdentifierString(pstrdup(document_handlers), ',', &handlers)) ereport(ERROR, (errmsg("invalid pg_mupdf.document_handlers")));
     if (!(ctx = fz_new_context(&fz_alloc_default_my, NULL, FZ_STORE_UNLIMITED))) ereport(ERROR, (errmsg("!fz_new_context")));
     fz_set_error_callback(ctx, pg_mupdf_error_callback, NULL);
     fz_set_warning_callback(ctx, pg_mupdf_warning_callback, NULL);
@@ -101,7 +178,7 @@ EXTENSION(pg_mupdf) {
     fz_var(stm);
     fz_var(wri);
     fz_try(ctx) {
-        fz_register_document_handlers(ctx);
+        foreach(l, handlers) fz_register_document_handler(ctx, pg_mupdf_handler(lfirst(l)));
         fz_set_use_document_css(ctx, 1);
         buf = fz_new_buffer(ctx, 0);
         out = fz_new_output_with_buffer(ctx, buf);
